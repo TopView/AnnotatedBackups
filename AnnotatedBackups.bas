@@ -139,6 +139,7 @@
 
 
 ' --- HISTORY --------------------------------------------------------------------------------------------------------------
+' v 1.5.05		2017-03-28	Default iMaxCopies: 50
 ' v 1.5.04		2017-03-28	Default backup path: /AnnotatedBackups (relative)
 '
 ' v 1.5.03		2017-03-28	Corrected Annotated name spelling.  lol, really!
@@ -194,7 +195,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	'	C:\My Documents\BackupFolder	= Absolute.  Put backups in root							C:\My Documents\BackupFolder\.	
 	'	"foo"							= Absolute.  Put backups in root							/foo/. 	(note: likely fails in linux root)
 
-	Dim iMaxCopies 	As Integer	:iMaxCopies	=5	'Max number of timestamped backup files to be retained (per file).  0=no limit.  
+	Dim iMaxCopies 	As Integer	:iMaxCopies	=50	'Max number of timestamped backup files to be retained (per file).  0=no limit.  
 												'	e.g. if have 10 and you set this to 8, then the 2 oldest backups will be auto deleted.
 												'	All backup files need to be accessed to find the oldest, so huge values may be slow.
 												'	Previously called iMaxFiles.
