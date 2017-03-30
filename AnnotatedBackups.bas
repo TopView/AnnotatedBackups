@@ -139,6 +139,8 @@
 
 
 ' --- HISTORY --------------------------------------------------------------------------------------------------------------
+' v 1.5.04		2017-03-28	Default backup path: /AnnotatedBackups (relative)
+'
 ' v 1.5.03		2017-03-28	Corrected Annotated name spelling.  lol, really!
 '							Added warning for those using AutomaticBackup to use a new backup path
 '
@@ -186,7 +188,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'--- 1) Set the following two variables -------------------------------------------------------
 
-	Dim sPath 		As String	:sPath 		="/Backups"	'Path to backups. Relative if empty or slash prefix, otherwise absolute, e.g:
+	Dim sPath 		As String	:sPath 		="/AnnotatedBackups"	'Path to backups. Relative if empty or slash prefix, otherwise absolute, e.g:
 	'	""								= Relative.  Put backups where document is stored			.../documentdir/.
 	'	"/foo							= Relative.  Put backups where document is stored+sPath		.../documentdir/foo/.
 	'	C:\My Documents\BackupFolder	= Absolute.  Put backups in root							C:\My Documents\BackupFolder\.	
