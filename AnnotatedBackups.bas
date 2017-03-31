@@ -1,3 +1,5 @@
+Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
+
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
 
@@ -138,7 +140,8 @@
 
 
 
-' --- HISTORY --------------------------------------------------------------------------------------------------------------
+' --- VERSION AND HISTORY---------------------------------------------------------------------------------------------------
+' v 1.5.06		2017-03-31	Counts only my open forms which might need to be closed.
 ' v 1.5.05		2017-03-28	Default iMaxCopies: 50
 ' v 1.5.04		2017-03-28	Default backup path: /AnnotatedBackups (relative)
 '
@@ -169,11 +172,8 @@
 '							(same folder as current file).
 '
 ' v 1.1.0		2007-04-10	Work with the four main document types of OOo (Writer, Calc, Impress and Draw).
-
-
 '---------------------------------------------------------------------------------------------------------------------------
 
-Option Explicit
 
 
 '=== Do one or more backups of the current or given file, possibly removing older backups =========
@@ -186,6 +186,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	'##################################################################################################
 	'####################################### SETTABLE OPTIONS #########################################
 	'##################################################################################################
+
 
 	'--- 1) Set the following two variables -------------------------------------------------------
 
@@ -201,30 +202,32 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 												'	Previously called iMaxFiles.
 
 
+
 	' --- 2) Enable lines below if you often need to save your documents in non-native formats -----
 	'
-	'Example:  	Each time you backup you can easily save your Writer documents in these formats: .odt, .doc, .swx, etc.
+	'Example:  		Each time you backup you can easily save your Writer documents in these formats: .odt, .doc, .swx, etc.
 	'
-	' 			sB is an array that defines the components of your backkup job.  
-	'			For any given module, it allows for multiple file formats to be saved at the same time (in seperate files).
+	'General:		'sB is an array that defines the components of your backkup job.  
+	'				For any given module, it allows for multiple file formats to be saved at the same time (in seperate files).
 	'
-	'Structure: Each entry below contains five vertical bar, delimited columns with an optional comment, as follows:
-	'
-	'				Backup?			Contains either `BACKUP` (all caps) to cause this filter to be run, or an empty string (of tabs or spaces).
-	'				Module			Name of the associated Module name
-	'				Ext				The file name extension for this file type
-	'				Description		A brief description of the format
-	'				Filter name		The name of the filter that will write the file in the proper format
-	'				Comment			Varies, but an attempt to keep track of the working status of the filter.
+	'sB Structure:	Each line below contains five vertical bar, delimited columns with an optional comment, as follows:
+	'					Backup?			Contains either `BACKUP` (all caps) to cause this filter to be run, or an empty string (of tabs or spaces).
+	'					Module			Name of the associated Module name
+	'					Ext				The file name extension for this file type
+	'					Description		A brief description of the format
+	'					Filter name		The name of the filter that will write the file in the proper format
+	'					Comment			Varies, but an attempt to keep track of the working status of the filter.
 	
-	'Caution!	Some comments advise: "Strongly reccommend keeping this line unchanged".  
-	'			If you turn off these ODF backups, which are for the native formats, you might loose 
-	'			some of your work and not be able to recover!
-	
-	'Usage:		Enter BACKUP in the `Backup?` column to add an additional (supplemental) backup format to your backup job.  White space ignored.  
+	'Usage:			Enter BACKUP in the `Backup?` column to add an additional (supplemental) backup format to your backup job.  White space ignored.  
+	'	
+	' 					If you enable several file types with the same extension, only the backup file with the last filter will be saved.  
+	' 					(In other words, earlier filter outputs will be overwritten).
 	'
-	' 			If you enable several file types with the same extension, only the backup file with the last filter will be saved.  
-	' 			(In other words, earlier filter outputs will be overwritten).
+	'					Some lines are commented out (i.e. with a leading ', '* or '?).  See legend below.
+	
+	'Caution!		Some comments advise: "Strongly reccommend keeping this line unchanged".  
+	'					If you turn off these ODF backups, which are for the native formats, you might loose 
+	'					some of your work and not be able to recover!
 	
 
 	'		       Bakup?	|Module		|Ext	|Description		   								|Filter name								|Comment
@@ -461,8 +464,9 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	
 	'---------------------------------------------------------------------------------------------------------------------
 	'Legend:
-	' ?		= Unknown backup type (possibly older).
-	' * 	= Was missing in list above.  From current 5.2.3.3 Save-As menu.
+	' '?	= Unknown backup type (possibly older).
+	' '* 	= Was missing in list above.  From current 5.2.3.3 Save-As menu.
+	' '		= Other reason for disabling, but keeping in this list.
 
 	
 
@@ -476,7 +480,14 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	Dim oDoc 	As Object	:oDoc	= ThisComponent		'Was: "If IsMissing(oDoc) Then Dim oDoc As Object :oDoc = ThisComponent" But, not sure what the If was for as it doesn't work.
 
 
+'stop
+
 	'--- Allow this to be run from within a for - If not run from outer window, then get parent until oDoc is correct.	(happens only in Base)
+'!! New document's oDoc.URL is empty
+
+'	DIM sUrl_From	AS STRING							:sUrl_From	= oDoc.URL
+'	DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
+
 	DIM sUrl_From	AS STRING							:sUrl_From	= oDoc.URL
 	DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
 
@@ -485,7 +496,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	If oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") Then
 	
 	
-		'--- Find how many forms are open (i.e. they are inside Frames of Frames in the Desktop)
+		'--- Find how many of my forms are open (i.e. they are inside Frames of Frames in the Desktop)
 		Dim iOpenForms	As Integer	:iOpenForms = 0
 		Dim iFrame		As integer
 		Dim iForm		As integer
@@ -499,14 +510,14 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 				For iForm=0 To StarDesktop.Frames.getByIndex(iFrame).Frames.Count-1 Step 1
 				
 					'Looking for titles like: "Lookup5.odb : <form name>"
-					If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,".odb : ")<>0 Then
+					If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 Then
 '						msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title
-						iOpenForms = iOpenForms+1		'found one
+						iOpenForms = iOpenForms+1		':msbbox "found one"
 					End If
 				Next iForm
 			End If
 		Next iFrame
-	
+
 	
 		'--- Now if any forms are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
 		'		(Because I can't figure out how to save any current records changes before the backup).
@@ -518,7 +529,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 						4+32+128,_
 						"Preparing to backup") = 7 Then Exit Sub	'4=Yes/No= + 32="?" + 128=first button (Yes) is default
 	
-			'-Close all forms (open or not).  This is harmless  as some of them might already be closed, but I can't tell here which ones)
+			'-Close all forms (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones)
 			Dim oForms 	As Object	:oForms	= oDoc.FormDocuments
 			If oForms.count Then 
 				For iForm=0 To oForms.count-1
@@ -529,7 +540,6 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		End If
 
 	End if
-
 
 
 	'--- Make sure document is saved before proceeding ----------------------------------															'
