@@ -29,12 +29,12 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 ' --- FEATURES -------------------------------------------------------------------------------------------------------------
 
 '		* Creates one or more copies of the current document with a timestamp and optional comment suffix added to the filename, 
-'		  into an absolute or relative backup folder.
+'		  into a relative backup folder.  (The absolute folder option has been removed.)
 
 '			For example, if the current document is MyTest.odt, each time you run the macro a copy will be saved in  
-'				C:\BackupDocs (or any folder you like) and named "MyTest--2009-10-10_17:25:36 MyComment.odt".
+'				./AnnotatedBackups/ (or any folder you like) and named "MyTest--2009-10-10_17:25:36 MyComment.odt".
 
-'		* Works with:  Base, Calc, Draw, Impress and Writer.  (But does not backup up non-embedded databases.)
+'		* Works with:  Base, Calc, Draw, Impress, Math, and Writer.  (Does not backup non-embedded, connected databases like MariaDB.)
 
 '		* Older backups can be automatically pruned by setting the iMaxCopies limit counter to non-zero.
 
@@ -68,16 +68,13 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 '		3) Setup:
 
-'				Set 'sPath'			- to either an absolute or relative backup path below.
-'					!WARNING: 		- If you were using the older AutomaticBackup you might want to give sPath a different path, because the 
-'										naming of backup files has changed, and otherwise AnnotatedBackups might wipe out your old backups.
-'
-'				set 'iMaxCopies'	- to the maximum number of backups retained before purging of older ones begins, or 0 for no purging.
+'				Set 'sPath'			- The backup path name, relative to the document's location.  Defaults to /AnnotatedBackups
+'				set 'iMaxCopies'	- To the maximum number of backups retained before purging of older ones begins, or 0 for no purging.  Defaults to 50.
 
 
 '		4a)	Download AnnotatedBackups.gif to your desktop from (to be added later)		[Possibly someone can create a nicer icon]
 
-'		4b) Add a 'Save & Backup' tool item to each of the LibreOffice Stardard Bars (in: Base, Calc, etc.). 	For example, for writer:
+'		4b) Add a 'Save & Backup' tool item to each of the LibreOffice Stardard Bars (in: Base, Calc, etc.).  For example, for writer:
 
 '			Menu> File | New | Text Document											(opens LibreOffice Writer dialog with 'Untitled' document)
 
@@ -97,12 +94,12 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 '					Click Close															('AnnotatedBackups' will have been added to your Toolbar Content)
 
-'				Use the up or down arrow buttons to move AnnotatedBackups below the 'Save As...' menu icon
+'				Use the up or down arrow buttons to move AnnotatedBackups just below 'Save As...'
 
 '				Click the 'Modify' pull down button and select 'Rename...'.  			(opens Rename Toolbar dialog)
 '					Rename AnnotatedBackups to 'Save & Backup'.
 
-'				Click the 'Modify' pull down button and select 'Change Icon...' 		(opens Change Icon dialog)
+'				Click the 'Modify' pull down button again and select 'Change Icon...' 	(opens Change Icon dialog)
 '					Click the 'Import...' button.
 '						In the file type pull down select the GIF file filter
 '						Then locate and open 'AnnotatedBackups.gif'
@@ -113,19 +110,19 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 '		5) Test it:
 
-'			When you first click he AnnotatedBackups icon, you are likely to get a Save As file selection window.  
+'			When you first click the Save & Backup icon, you are likely to get a Save As file selection window.  
 '			This is because the new document you created called 'Untitled' has not yet been saved.  Possiblty rename it, 
 '			and then save it someplace.
 
-'			Next you will get a "Backup as: '<file type>' ?  iMaxCopies =nnn)" dialog.
+'			Next you will get a "Backup Path/FileName   (iMaxCopies=N)" dialog.
 
-'			Extend the default filename with a few words to say what this backup represents and then click Ok.  You can also just click Ok.
+'			If you wish, extend the default filename with a few words to say what this backup represents and then click Ok.  You can also just click Ok.
 
-'			By default the backup folder is set to 'Relative' below and named 'Backup', so you can look in the Backup/. subdirectory of where 
-'			you saved your document for your backups.
+'			By default your backup folder is the ./AnnotatedBackups/ subdirectory of your Document.  So you can look there
+'			for your newly created backup.
 
 '			After you have created a few backups, you will notice that any more than the iMaxLimit are purged, 
-'			so you always retain the iMaxCopies most recent backups.
+'			oldest first, so you always retain the iMaxCopies number of most recent backups.
 
 
 '		6) "For advanced users, this macro can make several copies of the document, in different formats. 
@@ -138,14 +135,11 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 
 ' --- HISTORY --------------------------------------------------------------------------------------------------------------
+' v 1.5.09	Removed possibly corruptive absolute path option.
 ' v 1.5.08	Changed tool tip (on icon) to 'Save & Backup'.
-
 ' v 1.5.07	Fixed unravel of oDoc so only unravels Base Forms.  Added support for Math.
-
 ' v 1.5.06	Counts only my open forms which might need to be closed.
-
 ' v 1.5.05	Default iMaxCopies: 50
-
 ' v 1.5.04	Default backup path: /AnnotatedBackups (relative)
 '
 ' v 1.5.03	Corrected Annotated name spelling.  lol, really!
@@ -164,17 +158,17 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 '			Fixed bug in older backup purging, and
 '			Added new installation and usage notes.	- EasyTrieve
 '
-' v 1.4		Added procedure to auto-remove older backups. - Ratslinger
+' v 1.4		2017-03-01	Added procedure to auto-remove older backups. - Ratslinger
 '
-' v 1.3		Now works with Windows XP and Linux (Ubuntu) file path format containing "/" or "\".
+' v 1.3		2009-10-10	Now works with Windows XP and Linux (Ubuntu) file path format containing "/" or "\".
 '
-' v 1.2		Add several new filters and make the selection of which filters to use for backup relatively easy for the User.
-'			Allow save of the document in case it is not yet saved.
+' v 1.2		2007-04-16	Add several new filters and make the selection of which filters to use for backup relatively easy for the User.
+'							Allow save of the document in case it is not yet saved.
 '
-' v 1.1.1	Improve the handling of the path, with possibility of relative path (from current file path) or even empty path 
-'			(same folder as current file).
+' v 1.1.1	2007-04-12	Improve the handling of the path, with possibility of relative path (from current file path) or even empty path 
+'							(same folder as current file).
 '
-' v 1.1.0	Work with the four main document types of OOo (Writer, Calc, Impress and Draw).
+' v 1.1.0	2007-04-10	Work with the four main document types of OOo (Writer, Calc, Impress and Draw).
 '---------------------------------------------------------------------------------------------------------------------------
 
 
@@ -195,20 +189,14 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	Dim iMaxCopies 	As Integer	:iMaxCopies	=50	'Max number of timestamped backup files to be retained (per file).  0=no limit.  
 												'	e.g. if have 10 and you set this to 8, then the 2 oldest backups will be auto deleted.
 												'	All backup files need to be accessed to find the oldest, so huge values may be slow.
-												'	Previously called iMaxFiles.
 												
-	Dim sPath 		As String	:sPath 		="/AnnotatedBackups"	'Path to backups. Relative if empty or slash prefix, otherwise absolute (not recomended).
+	Dim sPath 		As String	:sPath 		="AnnotatedBackups"		'Relative path from documents to backups.
 	'Examples:
-	'	""								= Relative (	recomended ).  Put backups in folder where document is stored			.../documentdir/.
-	'	"/foo							= Relative (	recomended ).  Put backups in folder where document is stored+sPath		.../documentdir/foo/.
-	
-	'	C:\My Documents\BackupFolder	= Absolute (not recomended*).  Put backups in root										C:\My Documents\BackupFolder\.	
-	'	"foo"							= Absolute (not recomended*).  Put backups in root										/foo/. 	(note: likely fails in linux root)
-	'
-	' !!! Absolute sPath is NOT recomended because backups can be overwritten if there are same named documents in multiple different paths.
+	'	""		= Put backups in folder where document is stored			.../documentdir/.
+	'	"foo	= Put backups in folder where document is stored+sPath		.../documentdir/foo/.
 
 
-	' --- Step 2) Enable lines below if you often need to save your documents in non-native formats 
+	' --- Step 2) Expert adjustments.  Enable lines below if you often need to save your documents in non-native formats 
 	'
 	'Example:  		Each time you backup you can easily save your Writer documents in these formats: .odt, .doc, .swx, etc.
 	'
@@ -590,25 +578,24 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 
 	' --- default folder ----------------------------------------------------------------
-	' sPath is relative if empty or prefixed with a slash (this is confusing), otherwise it's absolute
-	'	"foo"	absolute - put backups in root						/foo/.
+	' sPath is relative.
 	'	""		relative - put backups where document is stored		.../basedir/.
-	'	"/foo	relative - put backups where document is stored		.../basedir/foo/.
-	If sPath = "" or Left(sPath, 1) = sSlash Then
-		i 		=  Len(sDocNameWithFullPath)
-		While 	   Mid(sDocNameWithFullPath, i,  1) <> sSlash	:i=i-1	:Wend		'strip off doc filename - search backwards for first slash or backslash
-		sPath	= Left(sDocNameWithFullPath, i - 1) & sPath							'DocumentPath/sPath		- prefix SPath with Source path
-	End If
+	'	"foo	relative - put backups where document is stored		.../basedir/foo/.
+	'	"/"		relative - put backups where document is stored		.../basedir/.			Note: these work too
+	'	"/foo	relative - put backups where document is stored		.../basedir/foo/.		Note: these work too
+	i 										=  Len(sDocNameWithFullPath)
+	While 									   Mid(sDocNameWithFullPath, i,  1) <> sSlash	:i=i-1	:Wend		'strip off doc filename to get abs ppath
+	Dim sAbsPath	As String	:sAbsPath	= Left(sDocNameWithFullPath, i - 1) & "/" & sPath					'DocumentPath/sPath
 
-	
+
 	' --- Check if the backup folder exists, if not we create it ------------------------
 	On Error Resume Next
-	MkDir sPath																		'Create directory (if not already found)
+	MkDir sAbsPath																	'Create directory (if not already found)
 	On Error Goto 0
 
 	
 	' --- Add a slash at the end of the path, if not already present --------------------
-	If Right(sPath, 1) <> sSlash Then sPath = sPath & sSlash
+	If Right(sAbsPath, 1) <> sSlash Then sAbsPath = sAbsPath & sSlash
 
 	
 	' --- Save current document changes -------------------------------------------------
@@ -631,8 +618,11 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	
 	'-- Prompt for confirmation and possible comment to append
 	'		   InputBox(text, title, default text)
-	sBackupName 	= InputBox(	"Target directory and filename:   (Tip: You can add a comment to the filename.)" &chr(10)&chr(10)&"    "& sPath ,_
-								"Backup?   (iMaxCopies=" & iMaxCopies & ")", sBackupName)
+'	sBackupName 	= InputBox(	"Target directory and filename:   (Tip: .)" &chr(10)&chr(10)&"    "& sPath ,_
+'								"Set Backup Name   (iMaxCopies=" & iMaxCopies & ")", sBackupName)
+	sBackupName 	= InputBox(	"Relative backup path:  ./" & sPath &chr(10)&chr(10)&_
+								"You can append an annotation comment to this default backup file name:",_
+								"Backup Path & FileName   (iMaxCopies=" & iMaxCopies & ")", sBackupName)
 
 	If len(sBackupName) Then
 	
@@ -655,10 +645,10 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 					sExt 			= 															GetField(sB(i), "|", 3)			'file name extension (used 2 places)
 
-						sSaveToURL	= ConvertToURL(  		sPath &   sBackupName & "." & sExt)									'Name to save to
+						sSaveToURL	= ConvertToURL(  		sAbsPath &   sBackupName & "." & sExt)								'Name to save to
 						oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 		GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
 
-						PruneBackupsToMaxSize(iMaxCopies,	sPath,Len(sBackupName & "." & sExt),sDocName,sExt)					'And finally possibly remove older backups to limit number of them kept
+						PruneBackupsToMaxSize(iMaxCopies,	sAbsPath,Len(sBackupName & "." & sExt),sDocName,sExt)				'And finally possibly remove older backups to limit number of them kept
 
 				End If
 			End If
@@ -855,7 +845,7 @@ End Function
 
 
 ' === possibly remove older backups =====================================================
-Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sPath As String, iLenBackupName As Integer, sDocName As String, sExt As String)
+Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLenBackupName As Integer, sDocName As String, sExt As String)
 	if iMaxCopies = 0 then exit sub											'If iMaxCopies is = 0, there is no need to read, sort or delete any files.
 
 		
@@ -863,7 +853,7 @@ Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sPath As String, iLenBackupName
 	Dim mArray() 		As String											'Array to store list of existing backup path/file names
 	Dim iBackups 		As Integer 	:iBackups 		= 0						'Count of existing backup files	
 	
-	Dim stFileName 		As String	:stFileName 	= Dir(sPath, 0)			'Get FIRST normal file from pathname
+	Dim stFileName 		As String	:stFileName 	= Dir(sAbsPath, 0)		'Get FIRST normal file from pathname
 	Do While (stFileName <> "")
 	
 		'Huristic to test for deletable backups
@@ -883,8 +873,8 @@ Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sPath As String, iLenBackupName
 
 	'--- Deleting oldest files ----------------------------------------------------------
 	'Deletes oldest files exceeding the limit set in iMaxCopies
-	Dim iKill			As Integer	:iKill = iBackups - iMaxCopies							'# of old backups to delete
-	Dim x 				As Integer	:For x = 0 to iKill -1: Kill(sPath & mArray(x)): Next x	'now delete them
+	Dim iKill			As Integer	:iKill = iBackups - iMaxCopies								'# of old backups to delete
+	Dim x 				As Integer	:For x = 0 to iKill -1: Kill(sAbsPath & mArray(x)): Next x	'now delete them
 
 End Sub
 
@@ -942,34 +932,35 @@ End function
 
 
 
-
-
-SUB BaseBackup (oDoc As Object, sPath As string)
-
-	' 1) --- Get sUrl_From (the place to copy from) --------------------------------------------------
-	DIM sTitle		AS STRING	:sTitle			= oDoc.Title
-	DIM sUrl_From 	AS STRING	:sUrl_From		= oDoc.URL
-
-	'If the macro is run when you launch the ODB file the sUrl_From will be correct. However, if
-	'the macro is carried out by a form, it must first determine whether a URL is available. If the URL is
-	'empty, a higher level (oDoc.Parent) for a value is looked up.
-	DO WHILE sUrl_From = ""
-		oDoc		= oDoc.Parent
-		sTitle		= oDoc.Title
-		sUrl_From	= oDoc.URL
-	LOOP
-
-	
-	' 2) --- Get sUrl_To (the place to copy to) ------------------------------------------------------
-	DIM oPath		AS OBJECT	:oPath			= createUnoService("com.sun.star.util.PathSettings")
-
-	DIM sUrl_To		AS STRING	:sUrl_To		= oPath.Backup & "/" & 99 &"_" & sTitle
-
-
-	' 3) --- Make the backup copy - Copy Start to End (source to target) -----------------------------
-	FileCopy(sUrl_From, sUrl_To)
-	
-END SUB
+''=================================================================================================
+'''This is the code from the LO Base manual (with a bug fix) suggested to backup Base.
+'''Not used here, but kept in this source code for future reference
+''SUB BaseBackup (oDoc As Object, sAbsPath As string)
+''
+''	' 1) --- Get sUrl_From (the place to copy from) --------------------------------------------------
+''	DIM sTitle		AS STRING	:sTitle			= oDoc.Title
+''	DIM sUrl_From 	AS STRING	:sUrl_From		= oDoc.URL
+''
+''	'If the macro is run when you launch the ODB file the sUrl_From will be correct. However, if
+''	'the macro is carried out by a form, it must first determine whether a URL is available. If the URL is
+''	'empty, a higher level (oDoc.Parent) for a value is looked up.
+''	DO WHILE sUrl_From = ""
+''		oDoc		= oDoc.Parent
+''		sTitle		= oDoc.Title
+''		sUrl_From	= oDoc.URL
+''	LOOP
+''
+''	
+''	' 2) --- Get sUrl_To (the place to copy to) ------------------------------------------------------
+''	DIM oPath		AS OBJECT	:oPath			= createUnoService("com.sun.star.util.PathSettings")
+''
+''	DIM sUrl_To		AS STRING	:sUrl_To		= oPath.Backup & "/" & 99 &"_" & sTitle
+''
+''
+''	' 3) --- Make the backup copy - Copy Start to End (source to target) -----------------------------
+''	FileCopy(sUrl_From, sUrl_To)
+''	
+''END SUB
 
 
 
@@ -1077,7 +1068,7 @@ END SUB
 '
 '	* Blank lines: I use extra blank lines to see blocks.  I like blocks.
 '
-'	* Horizontal lines: I like horizontal lines to seperate things.  They come in different strengths, - = #.
+'	* Horizontal lines: I like horizontal liNote: nes to seperate things.  They come in different strengths, - = #.
 '
 '	* Vertical alignment: I like to line things up vertically.
 '		It helps me see many things more clearly which are often related from line to line.  Parallelism.
