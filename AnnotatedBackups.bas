@@ -66,7 +66,7 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 '			Select: AnnotatedBackups and click Edit										(opens My Macros & Dialogs.Standard - LibreOffice Basic dialog)
 '				Paste this entire text into the large code window.
 
-'		3) Setyp:
+'		3) Setup:
 
 '				Set 'sPath'			- to either an absolute or relative backup path below.
 '					!WARNING: 		- If you were using the older AutomaticBackup you might want to give sPath a different path, because the 
@@ -75,7 +75,9 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 '				set 'iMaxCopies'	- to the maximum number of backups retained before purging of older ones begins, or 0 for no purging.
 
 
-'		4a) Add a menu icon to each of the LibreOffice components (Base, Calc, etc.).  For Writer:
+'		4a)	Download AnnotatedBackups.gif to your desktop from (to be added later)		[Possibly someone can create a nicer icon]
+
+'		4b) Add a 'Save & Backup' tool item to each of the LibreOffice Stardard Bars (in: Base, Calc, etc.). 	For example, for writer:
 
 '			Menu> File | New | Text Document											(opens LibreOffice Writer dialog with 'Untitled' document)
 
@@ -91,28 +93,23 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 '						'LibreOffice Macros' > My Macros > Standard > AnnotatedBackups
 
 '					Under Commands select:
-'				
 '						"AnnotatedBackups" and and click the 'Add' button				(adds this to the menu in the already open Customize dialog)
 
 '					Click Close															('AnnotatedBackups' will have been added to your Toolbar Content)
 
-'				Use the down arrow button to move the icon below the 'Save As...' menu icon
+'				Use the up or down arrow buttons to move AnnotatedBackups below the 'Save As...' menu icon
 
+'				Click the 'Modify' pull down button and select 'Rename...'.  			(opens Rename Toolbar dialog)
+'					Rename AnnotatedBackups to 'Save & Backup'.
 
-'		4b) Install a menu icon for AnnotatedBackups:
-
-'			Download AnnotatedBackups.gif to your desktop from (to be added later)		[Possibly someone can create a nicer icon]
-
-'			Click the 'Modify' pull down button and select 'Change Icon...'
-
-'				Click the 'Import...' button.
-'
-'					In the file type pull down select the GIF file filter
-'					Then locate and open 'AnnotatedBackups.gif'
-
-'				Select the new icon, then click Ok.
+'				Click the 'Modify' pull down button and select 'Change Icon...' 		(opens Change Icon dialog)
+'					Click the 'Import...' button.
+'						In the file type pull down select the GIF file filter
+'						Then locate and open 'AnnotatedBackups.gif'
+'					Select the new icon, then click Ok.
 
 '			Click Ok
+
 
 '		5) Test it:
 
@@ -141,8 +138,9 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 
 ' --- HISTORY --------------------------------------------------------------------------------------------------------------
-' v 1.6.07		2017-03-28	Fixed unravel of oDoc so only unravels Base Forms.  Added support for Math.
-' v 1.5.06		2017-03-31	Counts only my open forms which might need to be closed.
+' v 1.6.08		2017-03-30	Changed tool tip (on icon) to 'Save & Backup'.
+' v 1.6.07		2017-03-30	Fixed unravel of oDoc so only unravels Base Forms.  Added support for Math.
+' v 1.5.06		2017-03-29	Counts only my open forms which might need to be closed.
 ' v 1.5.05		2017-03-28	Default iMaxCopies: 50
 ' v 1.5.04		2017-03-28	Default backup path: /AnnotatedBackups (relative)
 '
