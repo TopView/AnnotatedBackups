@@ -581,8 +581,8 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	' sPath is relative.
 	'	""		relative - put backups where document is stored		.../basedir/.
 	'	"foo	relative - put backups where document is stored		.../basedir/foo/.
-	'	"/"		relative - put backups where document is stored		.../basedir/.			Note: these work too
-	'	"/foo	relative - put backups where document is stored		.../basedir/foo/.		Note: these work too
+	'	"/"		relative - put backups where document is stored		.../basedir/.			Note: Leading slash is ok too
+	'	"/foo	relative - put backups where document is stored		.../basedir/foo/.		Note: Leading slash is ok too
 	i 										=  Len(sDocNameWithFullPath)
 	While 									   Mid(sDocNameWithFullPath, i,  1) <> sSlash	:i=i-1	:Wend		'strip off doc filename to get abs ppath
 	Dim sAbsPath	As String	:sAbsPath	= Left(sDocNameWithFullPath, i - 1) & "/" & sPath					'DocumentPath/sPath
@@ -857,7 +857,7 @@ Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLenBackupN
 	Do While (stFileName <> "")
 	
 		'Huristic to test for deletable backups
-'		If 	 Len(stFileName					) = iLenBackupName	And	_		'patch this is to only remove un-commented names and not purge names given a suffix comment
+'		If 	 Len(stFileName					) = iLenBackupName	And	_		'patch this in to only remove un-commented names and not purge names given a suffix comment
 		If _
 			Left(stFileName,Len(sDocName)	) = sDocName		And _
 		   Right(stFileName,3				) = sExt 				_
@@ -892,11 +892,11 @@ Function iSort(mArray)
 
 		
 	for iT = Lb+1 to Ub											'Work forwards through array: from second element to last element
-		sT = mArray(iT)												'Save element to test and possibly to move down (because will possibly will get stomped on).
+		sT = mArray(iT)												'Save element to test and possibly to move down (because will possibly get stomped on).
 
 		For iC = iT-1 to Lb step -1									'Search backwards thru what's already sorted until we're less than what we are finding.
-				If strComp(mArray(iC), sT, 0) < 1 Then  Exit For		'strComp returns -1 when mArray(iC) < t; Exit loop because we found insertion place
-				mArray(iC+1) = mArray(iC)								'otherwise shift elements up 1 and step down and repeat the test
+			If strComp(mArray(iC), sT, 0) < 1 Then  Exit For		'strComp returns -1 when mArray(iC) < t; Exit loop because we found insertion place
+			mArray(iC+1) = mArray(iC)								'otherwise shift elements up 1 and step down and repeat the test
 		Next iC
 
 		mArray(iC+1) = sT											'Finally, insert moved element here (might even be the very first position)
