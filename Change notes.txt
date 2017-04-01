@@ -3,9 +3,9 @@
 
 *** Change notes ***
 
-v 1.6.08	Installation notes now has you change the icon's tool tip to "Save & Backup", which more accurately says what is done.
+v 1.5.08	Installation notes now has you change the icon's tool tip to "Save & Backup", which more accurately says what is done.
 
-v 1.6.07	Fixed unravel of oDoc so it only unravels Base Forms, not new documents.  
+v 1.5.07	Fixed unravel of oDoc so it only unravels Base Forms, not new documents.  
 			Recomends relative path mode.  Cautions against absolute path mode.
 			Added initial support for Math module.
 

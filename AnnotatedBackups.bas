@@ -138,39 +138,43 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 
 ' --- HISTORY --------------------------------------------------------------------------------------------------------------
-' v 1.6.08		2017-03-30	Changed tool tip (on icon) to 'Save & Backup'.
-' v 1.6.07		2017-03-30	Fixed unravel of oDoc so only unravels Base Forms.  Added support for Math.
-' v 1.5.06		2017-03-29	Counts only my open forms which might need to be closed.
-' v 1.5.05		2017-03-28	Default iMaxCopies: 50
-' v 1.5.04		2017-03-28	Default backup path: /AnnotatedBackups (relative)
+' v 1.5.08	Changed tool tip (on icon) to 'Save & Backup'.
+
+' v 1.5.07	Fixed unravel of oDoc so only unravels Base Forms.  Added support for Math.
+
+' v 1.5.06	Counts only my open forms which might need to be closed.
+
+' v 1.5.05	Default iMaxCopies: 50
+
+' v 1.5.04	Default backup path: /AnnotatedBackups (relative)
 '
-' v 1.5.03		2017-03-28	Corrected Annotated name spelling.  lol, really!
-'							Added warning for those using AutomaticBackup to use a new backup path
+' v 1.5.03	Corrected Annotated name spelling.  lol, really!
+'			Added warning for those using AutomaticBackup to use a new backup path
 '
-' v 1.5.02		2017-03-18	Reformatted for wide screens (additional styling comments are foun at end of code below),
-'							Simplified code,
-'							Removed unused variables,
-'							Improved some procedure and variable names, 
-'							Added many comments: improves readability & testability,
-'							Organized and updated filter list: added comments, and allow white space with tabs in columns,
-'							Simplified sorting,
-'							Slightly reformatted timestamp,
-'							Added annotation capiability,
-'							Allow it to backup from Base even if inside of a Form,
-'							Fixed bug in older backup purging, and
-'							Added new installation and usage notes.	- EasyTrieve
+' v 1.5.02	Reformatted for wide screens (additional styling comments are foun at end of code below),
+'			Simplified code,
+'			Removed unused variables,
+'			Improved some procedure and variable names, 
+'			Added many comments: improves readability & testability,
+'			Organized and updated filter list: added comments, and allow white space with tabs in columns,
+'			Simplified sorting,
+'			Slightly reformatted timestamp,
+'			Added annotation capiability,
+'			Allow it to backup from Base even if inside of a Form,
+'			Fixed bug in older backup purging, and
+'			Added new installation and usage notes.	- EasyTrieve
 '
-' v 1.4			2017-03-01	Added procedure to auto-remove older backups. - Ratslinger
+' v 1.4		Added procedure to auto-remove older backups. - Ratslinger
 '
-' v 1.3			2009-10-10	Now works with Windows XP and Linux (Ubuntu) file path format containing "/" or "\".
+' v 1.3		Now works with Windows XP and Linux (Ubuntu) file path format containing "/" or "\".
 '
-' v 1.2			2007-04-16	Add several new filters and make the selection of which filters to use for backup relatively easy for the User.
-'							Allow save of the document in case it is not yet saved.
+' v 1.2		Add several new filters and make the selection of which filters to use for backup relatively easy for the User.
+'			Allow save of the document in case it is not yet saved.
 '
-' v 1.1.1		2007-04-12	Improve the handling of the path, with possibility of relative path (from current file path) or even empty path 
-'							(same folder as current file).
+' v 1.1.1	Improve the handling of the path, with possibility of relative path (from current file path) or even empty path 
+'			(same folder as current file).
 '
-' v 1.1.0		2007-04-10	Work with the four main document types of OOo (Writer, Calc, Impress and Draw).
+' v 1.1.0	Work with the four main document types of OOo (Writer, Calc, Impress and Draw).
 '---------------------------------------------------------------------------------------------------------------------------
 
 
