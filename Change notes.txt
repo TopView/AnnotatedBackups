@@ -1,0 +1,16 @@
+'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
+
+
+*** Change notes ***
+
+v 1.6.08	Installation notes now has you change the icon's tool tip to "Save & Backup", which more accurately says what is done.
+
+v 1.6.07	Fixed unravel of oDoc so it only unravels Base Forms, not new documents.  
+			Recomends relative path mode.  Cautions against absolute path mode.
+			Added initial support for Math module.
+
+v 1.5.06	Fixes minor display issue.  Counts only my open Base Forms which might need to be closed, not all open Base Forms.  
+
+v 1.5.05	Default iMaxCopies: 50
+
+v 1.5.04	Default backup path: /AnnotatedBackups (relative)
