@@ -140,7 +140,8 @@ Option Explicit	'BASIC	###### ANNOTATEDBACKUPS ######
 
 
 
-' --- VERSION AND HISTORY---------------------------------------------------------------------------------------------------
+' --- HISTORY --------------------------------------------------------------------------------------------------------------
+' v 1.6.07		2017-03-28	Fixed unravel of oDoc so only unravels Base Forms.  Added support for Math.
 ' v 1.5.06		2017-03-31	Counts only my open forms which might need to be closed.
 ' v 1.5.05		2017-03-28	Default iMaxCopies: 50
 ' v 1.5.04		2017-03-28	Default backup path: /AnnotatedBackups (relative)
@@ -187,23 +188,25 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	'####################################### SETTABLE OPTIONS #########################################
 	'##################################################################################################
 
-
-	'--- 1) Set the following two variables -------------------------------------------------------
-
-	Dim sPath 		As String	:sPath 		="/AnnotatedBackups"	'Path to backups. Relative if empty or slash prefix, otherwise absolute, e.g:
-	'	""								= Relative.  Put backups where document is stored			.../documentdir/.
-	'	"/foo							= Relative.  Put backups where document is stored+sPath		.../documentdir/foo/.
-	'	C:\My Documents\BackupFolder	= Absolute.  Put backups in root							C:\My Documents\BackupFolder\.	
-	'	"foo"							= Absolute.  Put backups in root							/foo/. 	(note: likely fails in linux root)
+	'--- Step 1) Set the following two variables --------------------------------------------------
 
 	Dim iMaxCopies 	As Integer	:iMaxCopies	=50	'Max number of timestamped backup files to be retained (per file).  0=no limit.  
 												'	e.g. if have 10 and you set this to 8, then the 2 oldest backups will be auto deleted.
 												'	All backup files need to be accessed to find the oldest, so huge values may be slow.
 												'	Previously called iMaxFiles.
+												
+	Dim sPath 		As String	:sPath 		="/AnnotatedBackups"	'Path to backups. Relative if empty or slash prefix, otherwise absolute (not recomended).
+	'Examples:
+	'	""								= Relative (	recomended ).  Put backups in folder where document is stored			.../documentdir/.
+	'	"/foo							= Relative (	recomended ).  Put backups in folder where document is stored+sPath		.../documentdir/foo/.
+	
+	'	C:\My Documents\BackupFolder	= Absolute (not recomended*).  Put backups in root										C:\My Documents\BackupFolder\.	
+	'	"foo"							= Absolute (not recomended*).  Put backups in root										/foo/. 	(note: likely fails in linux root)
+	'
+	' !!! Absolute sPath is NOT recomended because backups can be overwritten if there are same named documents in multiple different paths.
 
 
-
-	' --- 2) Enable lines below if you often need to save your documents in non-native formats -----
+	' --- Step 2) Enable lines below if you often need to save your documents in non-native formats 
 	'
 	'Example:  		Each time you backup you can easily save your Writer documents in these formats: .odt, .doc, .swx, etc.
 	'
@@ -410,6 +413,20 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 
 	'		       Bakup?	|Module		|Ext	|Description		   								|Filter name								|Comment
+	'===MATH====== ---------|-----------|-------|---------------------------------------------------|-------------------------------------------|--------------------------------------
+	i=i+1:sB(i) = "BACKUP	|Math		|odf	|ODF (Open Document Format) Formula					|Math8"										'Strongly reccommend keeping this line unchanged
+
+	
+	'-MATH SAVE AS OTHER:
+'	i=i+1:sB(i) = "			|Math		|mml	|MathML 2.0											*LO SUPPORTED but unknown filter name		'In 5.2 save as menu 
+
+	'-MATH EXPORTS:
+	i=i+1:sB(i) = "			|Math		|pdf	|PDF - Portable Document Format						|math_pdf_Export"							'in 5.2 export menu -is this filter ok???
+	'===MATH-END------------|-----------|-------|---------------------------------------------------|-------------------------------------------|--------------------------------------
+	
+	
+	
+	'		       Bakup?	|Module		|Ext	|Description		   								|Filter name								|Comment
 	'===WRITER=====---------|-----------|-------|---------------------------------------------------|-------------------------------------------|--------------------------------------
 	i=i+1:sB(i) = "BACKUP	|Writer		|odt	|ODF (Open Document Format) Text (Writer)			|Writer8"									'Strongly reccommend keeping this line unchanged
 	i=i+1:sB(i) = "			|Writer		|ott	|ODF (Open Document Format) Text (Writer) Template	|writer8_template"							'In 5.2 save as menu 
@@ -477,69 +494,51 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 
 	'--- Get document -------------------------------------------------------------------															'
-	Dim oDoc 	As Object	:oDoc	= ThisComponent		'Was: "If IsMissing(oDoc) Then Dim oDoc As Object :oDoc = ThisComponent" But, not sure what the If was for as it doesn't work.
+	Dim oDoc 		As Object	:oDoc		= ThisComponent		'Was: "If IsMissing(oDoc) Then Dim oDoc As Object :oDoc = ThisComponent" But, not sure what the If was for as it doesn't work.
+	DIM sUrl_From	AS STRING	:sUrl_From	= oDoc.URL			'Default From URL
 
 
-'stop
+	'--- Adjust oDoc if called from a Base Form, and also close any open Base Forms, but without chaning oDoc used by other LO modules
+'	msgbox "Title: " & oDoc.Title & chr(10) & "URL: " & oDoc.URL &chr(10) & "db: " & oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") & "    parent: " & iif(isnull(oDoc.parent),"null","not"): stop
+	'app	form?	state	title										db	parent	url
+	'------	-------	-------	-------------------------------------------	---	-------	---------------------------------------------------------------------------
+	'base			saved	Lookup.odb									t	missing	file:///home/howard/Shared/Data/LO/odb/1.8.0/Demonstrations/Lookup/Lookup.odb
+	'base			saved	New Database.odb							t	missing	file:///home/howard/Documents/New%20Database.odb
 
-	'--- Allow this to be run from within a for - If not run from outer window, then get parent until oDoc is correct.	(happens only in Base)
-'!! New document's oDoc.URL is empty
+	'base	form			New Database.odb : Form1					f	t		""													'forms don't have URL's
+	'base	form			Lookup.odb : Sample search and edit form	f	t		""													'forms don't have URL's
 
-'	DIM sUrl_From	AS STRING							:sUrl_From	= oDoc.URL
-'	DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
+	'calc 			unsaved	Untitled 2									f	void	""													'unsaved: no url; & no filename extension!
+	'				saved	Untitled 2.ods								f	void	file:///home/howard/Documents/Untitled%202.ods
 
-	DIM sUrl_From	AS STRING							:sUrl_From	= oDoc.URL
-	DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
+	'draw			unsaved	Untitled 2									f	void	""
+	'				saved	Untitled 2.odg								f	void	file:///home/howard/Documents/Untitled%202.odg
 
+	'impress		unsaved	Untitled 2									f	void	""
+	'				saved	Untitled 2.odp								f	void	file:///home/howard/Documents/Untitled%202.odp
 
-	'--- If Base then prompt user to close any open forms before proceeding
-	If oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") Then
-	
-	
-		'--- Find how many of my forms are open (i.e. they are inside Frames of Frames in the Desktop)
-		Dim iOpenForms	As Integer	:iOpenForms = 0
-		Dim iFrame		As integer
-		Dim iForm		As integer
-	
-		For iFrame=0 To StarDesktop.Frames.Count-1 Step 1
-		
-			'Looking for titles like: "Lookup5.odb - LibreOffice Base"
-			If instr(StarDesktop.Frames.getByIndex(iFrame).Title,".odb - ")<>0 Then
-'				msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Title
+	'math			unsaved	Untitled 2									f	void	""
+	'				saved	Untitled 2.odf								f	void	file:///home/howard/Documents/Untitled%202.odf
 
-				For iForm=0 To StarDesktop.Frames.getByIndex(iFrame).Frames.Count-1 Step 1
-				
-					'Looking for titles like: "Lookup5.odb : <form name>"
-					If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 Then
-'						msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title
-						iOpenForms = iOpenForms+1		':msbbox "found one"
-					End If
-				Next iForm
-			End If
-		Next iFrame
+	'writer			unsaved	Untitled 2									f	void	""
+	'				saved	Untitled 2.odt								f	void	file:///home/howard/Documents/Untitled%202.odt
+
 
 	
-		'--- Now if any forms are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
-		'		(Because I can't figure out how to save any current records changes before the backup).
-		if iOpenForms Then
-		
-			If msgBox(iOpenForms & " form" & iif(iOpenForms=1," is open and needs","s are open and need") 	&_
-							" to be closed before backup." & chr(10) & chr(10) 								&_
-							"Ok to close " & iif(iOpenForms=1,"","them") & " now?",							 _
-						4+32+128,_
-						"Preparing to backup") = 7 Then Exit Sub	'4=Yes/No= + 32="?" + 128=first button (Yes) is default
-	
-			'-Close all forms (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones)
-			Dim oForms 	As Object	:oForms	= oDoc.FormDocuments
-			If oForms.count Then 
-				For iForm=0 To oForms.count-1
-					oForms.getByIndex(iForm).close
-				Next iForm
-			End If
-			
+	'Get out of any Base Form, and make sure all Base forms are closed, but without messing up oDoc.URL for other LO Modules
+	if oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") then	'If Base (main/outer dialog)	(Note: parent doesn't always exist to test, like in Base it isn't there).
+		if		not	iBaseFormsClosed(oDoc) Then Exit Sub					'so make sure that all forms are closed
+
+	Else 																	' other: A Base Form, or another LO module, i.e. Calc, Draw, Impress, Math, or Writer
+'	mri oDoc: stop
+		If not isnull(oDoc.parent) then 									'If a Base form?
+			'Unravel - allow this to be run from within a Base Form		-Note!  A new, non-base docuemnt's URL is also empty.
+			DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
+			if 	not	iBaseFormsClosed(oDoc) Then Exit Sub					'again, make sure that all forms are closed
+'		Else																'its an other app
 		End If
+	End If
 
-	End if
 
 
 	'--- Make sure document is saved before proceeding ----------------------------------															'
@@ -648,8 +647,9 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 					(sDocType = "Calc"		And oDoc.supportsService("com.sun.star.sheet.SpreadsheetDocument"			)) Or _
 					(sDocType = "Draw"		And oDoc.supportsService("com.sun.star.drawing.DrawingDocument"				)) Or _
 					(sDocType = "Impress"	And oDoc.supportsService("com.sun.star.presentation.PresentationDocument"	)) Or _
+					(sDocType = "Math"		And oDoc.supportsService("com.sun.star.formula.FormulaProperties"			)) Or _
 					(sDocType = "Writer"	And oDoc.supportsService("com.sun.star.text.TextDocument"					)) 	  _
-				Then
+				Then																											'??Think this is right enough for formula.*
 
 					sExt 			= 															GetField(sB(i), "|", 3)			'file name extension (used 2 places)
 
@@ -674,6 +674,55 @@ End Sub
 '##################################################################################################
 '############################################ FUNCTIONS ###########################################
 '##################################################################################################
+
+'=== Close any Base forms (prompting user if necessary) ===========================================
+Function iBaseFormsClosed(oDoc As Object) As Integer
+	'--- Find how many of my forms are open (i.e. they are inside Frames of Frames in the Desktop)
+	Dim iOpenForms	As Integer	:iOpenForms = 0
+	Dim iFrame		As integer
+	Dim iForm		As integer
+
+	For iFrame=0 To StarDesktop.Frames.Count-1 Step 1
+
+		'Looking for titles like: "Lookup5.odb - LibreOffice Base"
+		If instr(StarDesktop.Frames.getByIndex(iFrame).Title,".odb - ")<>0 Then
+'			msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Title
+
+			For iForm=0 To StarDesktop.Frames.getByIndex(iFrame).Frames.Count-1 Step 1
+
+				'Looking for titles like: "Lookup5.odb : <form name>"
+				If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 Then
+'					msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title
+					iOpenForms = iOpenForms+1		':msbbox "found one"
+				End If
+			Next iForm
+		End If
+	Next iFrame
+
+
+	'--- Now if any forms are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
+	'		(Because I can't figure out how to save any current records changes before the backup).
+	if iOpenForms Then
+
+		If msgBox(iOpenForms & " form" & iif(iOpenForms=1," is open and needs","s are open and need") 	&_
+						" to be closed before backup." & chr(10) & chr(10) 								&_
+						"Ok to close " & iif(iOpenForms=1,"","them") & " now?",							 _
+					4+32+128,_
+					"Preparing to backup") = 7 Then iBaseFormsClosed = False: Exit Function		'4=Yes/No= + 32="?" + 128=first button (Yes) is default
+
+		'-Close all my forms (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
+		Dim oForms 	As Object	:oForms	= oDoc.FormDocuments
+		If oForms.count Then 
+			For iForm=0 To oForms.count-1
+				oForms.getByIndex(iForm).close
+			Next iForm
+		End If
+		
+	End If
+	iBaseFormsClosed = True
+End Function
+
+
 
 '=== Return filename /wo path or ext ==============================================================
 Function GetFileName(byVal sNameWithFullPath as String, byval sSlash as String) as String
