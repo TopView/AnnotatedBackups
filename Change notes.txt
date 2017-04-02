@@ -3,8 +3,7 @@
 
 *** Change notes ***
 
-	1.5.10	(pending)
-			Moved SETTINGS 					to 'AnnotatedBackupsSettings.bas' in AnnotatedBackupsSettings Module, so settings are not lost when updating.
+	1.5.10	Moved SETTINGS 					to 'AnnotatedBackupsSettings.bas' in AnnotatedBackupsSettings Module, so settings are not lost when updating.
 			Moved FEATURES 		comments 	to GitHub Wiki: Features
 			Moved INSTALLATION	comments 	to GigHub Wiki: Installation
 			Moved Terms 		comments 	to GitHub Wiki: Glossary of Terms.
