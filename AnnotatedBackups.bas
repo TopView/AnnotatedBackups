@@ -1,4 +1,4 @@
-Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.10 ######
+Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.11 ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
@@ -46,6 +46,17 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	Dim sB(200) 	As String	:sB()		= GETsB()			'Array of file types to possibly backup
 
 
+	'--- Get optional comment and honor abort request -----------------------------------
+	'(do this early, so as not to save or close anything if canceled)															'
+	Dim sComment	As String
+	sComment	 	= InputBox(	"(Reminders: iMaxCopies=" & iMaxCopies & ", relative backup path = ./" & sPath & ")" & chr(10) & chr(10) &_
+								"Optional backup description, (this gets appended to backup's filename):",_
+								"Filename Annotation","none")		'"none" is needed because an empty string and a cancel button are the same thing.
+	If sComment = "" Then Exit Sub
+	
+	sComment = iif(sComment = "none", "", " " & sComment)
+
+
 	'--- Get document -------------------------------------------------------------------															'
 	Dim oDoc 		As Object	:oDoc		= ThisComponent		'Was: "If IsMissing(oDoc) Then Dim oDoc As Object :oDoc = ThisComponent" But, not sure what the If was for as it doesn't work.
 	DIM sUrl_From	AS STRING	:sUrl_From	= oDoc.URL			'Default From URL
@@ -77,18 +88,16 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	'				saved	Untitled 2.odt								f	void	file:///home/howard/Documents/Untitled%202.odt
 
 
-	
+
 	'Get out of any Base Form, and make sure all Base forms are closed, but without messing up oDoc.URL for other LO Modules
 	if oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") then	'If Base (main/outer dialog)	(Note: parent doesn't always exist to test, like in Base it isn't there).
 		if		not	iBaseFormsClosed(oDoc) Then Exit Sub					'so make sure that all forms are closed
 
 	Else 																	' other: A Base Form, or another LO module, i.e. Calc, Draw, Impress, Math, or Writer
-'	mri oDoc: stop
 		If not isnull(oDoc.parent) then 									'If a Base form?
 			'Unravel - allow this to be run from within a Base Form		-Note!  A new, non-base docuemnt's URL is also empty.
 			DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
 			if 	not	iBaseFormsClosed(oDoc) Then Exit Sub					'again, make sure that all forms are closed
-'		Else																'its an other app
 		End If
 	End If
 
@@ -125,13 +134,14 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		Else :sSlash = "\"	:sOtherSlash = "/"		'Windows
 	End If
 
+
 	' --- extract filename --------------------------------------------------------------
 	Dim sDocName As String	:sDocName = GetFileName(sDocNameWithFullPath, sSlash)				'Source filename
 
 
 	' If sPath contains the wrong delimiter for our OS, replace it
 	Dim s As String	:s = ""						'move sPath into this char at a time, but replacing / with \ (or vise versa)
-	Dim i As Integer
+	Dim i As Integer							'Index used three places
 	For i = 1 to Len(sPath)
 		If Mid(sPath, i, 1) = sOtherSlash _
 			Then :s = s & sSlash
@@ -169,59 +179,67 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	' --- get timestamp -----------------------------------------------------------------
 	'  the timestamp, so it will be identical for all the backup copies
-	Dim sTimeStamp 		As String	:sTimeStamp	= "--" & 	Format(Year(	Now), "0000-"	) & _
-															Format(Month(	Now), "00-"		) & _
-															Format(Day(		Now), "00\_"	) & _
-															Format(Hour(	Now), "00:"		) & _
-															Format(Minute(	Now), "00:"		) & _
-															Format(Second(	Now), "00"		)
-										
+	Dim s_	As String	:s_ = iif(sSlash = "/",":","_")		'Allowable hour:time:seconds delimiter for linux or windows
+	Dim sTimeStamp 	As String: sTimeStamp	= "--" & 	Format(Year(	Now), "0000-"	) & _
+														Format(Month(	Now), "00-"		) & _
+														Format(Day(		Now), "00\_"	) & _
+														Format(Hour(	Now), "00"&s_	) & _
+														Format(Minute(	Now), "00"&s_	) & _
+														Format(Second(	Now), "00"		)
+
+
+	' --- Change illegal file name characters to dashes in comment ----------------------
+	'(Can't abort now because already passed cancel button, but didn't have filename when we had to ask to proceed)
+	If sComment<>"" Then
+	
+		Dim sIllegal()	As String
+		If sSlash="/"	Then :sIllegal() = Array("/")											'linux
+						Else :sIllegal() = Array("/", "\", ":", "*", "?", """", "<", ">", "|")	'Windows
+		End If
+
+		Dim sChar		As String
+		For i=1 to Len(sComment)
+			For Each sChar in sIllegal()
+				if Mid(sComment, i, 1) = sChar Then sComment = Left(sComment,i-1) & "-" & Right(sComment,len(sComment)-i
+			Next sChar
+		Next i
+		
+	End If
+
+
 	' --- do other backups --------------------------------------------------------------
 	' For each file filter, let's see whether we should create a backup copy or not
-	Dim sBackupName		As String	:sBackupName		= sDocName & sTimeStamp 	'used several places
+	Dim sBackupName		As String	:sBackupName		= sDocName & sTimeStamp & sComment 		'used twice below
 	
-	'-- Prompt for confirmation and possible comment to append
-	'		   InputBox(text, title, default text)
-'	sBackupName 	= InputBox(	"Target directory and filename:   (Tip: .)" &chr(10)&chr(10)&"    "& sPath ,_
-'								"Set Backup Name   (iMaxCopies=" & iMaxCopies & ")", sBackupName)
-	sBackupName 	= InputBox(	"Relative backup path:  ./" & sPath &chr(10)&chr(10)&_
-								"You can append an annotation comment to this default backup file name:",_
-								"Backup Path & FileName   (iMaxCopies=" & iMaxCopies & ")", sBackupName)
+	Dim sDocType 		As String
+	Dim sExt			As String	'file name extension
+	Dim sSaveToURL		As String
+	i = 1
+	While sB(i) <> ""
+		If 																					GetField(sB(i), "|", 1) = "BACKUP" Then	'Future: replace GetField -> split the line once into a array
 
-	If len(sBackupName) Then
-	
-		Dim sDocType 		As String
-		Dim sExt			As String	'file name extension
-		Dim sSaveToURL		As String
-		i = 1
-		While sB(i) <> ""
-			If 																					GetField(sB(i), "|", 1) = "BACKUP" Then	'Future: replace GetField -> split the line once into a array
+			sDocType 			= 															GetField(sB(i), "|", 2)
+			If  _
+				(sDocType = "Base"		And oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument"			)) Or _
+				(sDocType = "Calc"		And oDoc.supportsService("com.sun.star.sheet.SpreadsheetDocument"			)) Or _
+				(sDocType = "Draw"		And oDoc.supportsService("com.sun.star.drawing.DrawingDocument"				)) Or _
+				(sDocType = "Impress"	And oDoc.supportsService("com.sun.star.presentation.PresentationDocument"	)) Or _
+				(sDocType = "Math"		And oDoc.supportsService("com.sun.star.formula.FormulaProperties"			)) Or _
+				(sDocType = "Writer"	And oDoc.supportsService("com.sun.star.text.TextDocument"					)) 	  _
+			Then																											'??Think this is right enough for formula.*
 
-				sDocType 			= 															GetField(sB(i), "|", 2)
-				If  _
-					(sDocType = "Base"		And oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument"			)) Or _
-					(sDocType = "Calc"		And oDoc.supportsService("com.sun.star.sheet.SpreadsheetDocument"			)) Or _
-					(sDocType = "Draw"		And oDoc.supportsService("com.sun.star.drawing.DrawingDocument"				)) Or _
-					(sDocType = "Impress"	And oDoc.supportsService("com.sun.star.presentation.PresentationDocument"	)) Or _
-					(sDocType = "Math"		And oDoc.supportsService("com.sun.star.formula.FormulaProperties"			)) Or _
-					(sDocType = "Writer"	And oDoc.supportsService("com.sun.star.text.TextDocument"					)) 	  _
-				Then																											'??Think this is right enough for formula.*
+				sExt 			= 															GetField(sB(i), "|", 3)			'file name extension (used 2 places)
 
-					sExt 			= 															GetField(sB(i), "|", 3)			'file name extension (used 2 places)
+					sSaveToURL	= ConvertToURL(  		sAbsPath &   sBackupName & "." & sExt)								'Name to save to
+					oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 		GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
 
-						sSaveToURL	= ConvertToURL(  		sAbsPath &   sBackupName & "." & sExt)								'Name to save to
-						oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 		GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
+					PruneBackupsToMaxSize(iMaxCopies,	sAbsPath,Len(sBackupName & "." & sExt),sDocName,sExt)				'And finally possibly remove older backups to limit number of them kept
 
-						PruneBackupsToMaxSize(iMaxCopies,	sAbsPath,Len(sBackupName & "." & sExt),sDocName,sExt)				'And finally possibly remove older backups to limit number of them kept
-
-				End If
 			End If
-			i = i + 1
-		Wend
+		End If
+		i = i + 1
+	Wend
 		
-	Else
-		MsgBox("Backup Canceled",0," ")
-	End If
 End Sub
 
 
