@@ -1,4 +1,4 @@
-Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.11 ######
+Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.12 ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
@@ -251,26 +251,37 @@ End Sub
 
 '=== Close any Base forms (prompting user if necessary) ===========================================
 Function iBaseFormsClosed(oDoc As Object) As Integer
-	'--- Find how many of my forms are open (i.e. they are inside Frames of Frames in the Desktop)
-	Dim iOpenForms	As Integer	:iOpenForms = 0
+	'--- Count open Tables, Queries, & Forms (i.e. they are inside Frames of Frames in the Desktop)
+	Dim iOpenForms	As Integer	:iOpenForms	= 0		'Forms							-Can auto-close these
+	Dim iOpenTQs	As Integer	:iOpenTQs	= 0		'TQ		 = Tables or Queries	-Can't auto-close these (not yet at least)
+	
 	Dim iFrame		As integer
 	Dim iForm		As integer
+
+
+'=======================================================================================
+'0 Lookup.odb - LibreOffice Base
+'0 b Companies - Lookup - LibreOffice Base: Table Data View
+'0 b Query1 - Lookup - LibreOffice Base: Table Data View
+'0 b Lookup.odb : Sample search and edit form - LibreOffice Base: Database Form
+
+
 
 	For iFrame=0 To StarDesktop.Frames.Count-1 Step 1
 
 		'Looking for titles like: "Lookup5.odb - LibreOffice Base"
-		If instr(StarDesktop.Frames.getByIndex(iFrame).Title,".odb - ")<>0 Then
+		If instr(StarDesktop.Frames.getByIndex(iFrame).Title, oDoc.Title & " - LibreOffice Base")<>0 Then
 '			msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Title
 
 			For iForm=0 To StarDesktop.Frames.getByIndex(iFrame).Frames.Count-1 Step 1
 
-				'Looking for titles like: "Lookup5.odb : <form name>"
-				If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 Then
-'					msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title
-					iOpenForms = iOpenForms+1		':msbbox "found one"
-				End If
+				'Looking for Forms which have titles like: "Lookup5.odb : <form name>"
+				If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 _
+				Then :iOpenForms	= iOpenForms+1	':msgbox "found a child window that's also a form"
+				Else :iOpenTQs		= iOpenTQs  +1	':msgbox "found a child window"
+				End if
 			Next iForm
-		End If
+		End if
 	Next iFrame
 
 
@@ -278,11 +289,11 @@ Function iBaseFormsClosed(oDoc As Object) As Integer
 	'		(Because I can't figure out how to save any current records changes before the backup).
 	if iOpenForms Then
 
-		If msgBox(iOpenForms & " form" & iif(iOpenForms=1," is open and needs","s are open and need") 	&_
-						" to be closed before backup." & chr(10) & chr(10) 								&_
-						"Ok to close " & iif(iOpenForms=1,"","them") & " now?",							 _
+		If 	msgBox(iOpenForms & " form" & iif(iOpenForms=1," is open and needs","s are open and need") 	&_
+					" to be closed before backup." & chr(10) & chr(10) 									&_
+					"Ok to close " & iif(iOpenForms=1,"it","them") & " now?",							 _
 					4+32+128,_
-					"Preparing to backup") = 7 Then iBaseFormsClosed = False: Exit Function		'4=Yes/No= + 32="?" + 128=first button (Yes) is default
+					"Preparing to backup") 	= 7 Then iBaseFormsClosed = False: Exit Function		'4=Yes/No + 32="?" + 128=first button (Yes) is default
 
 		'-Close all my forms (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
 		Dim oForms 	As Object	:oForms	= oDoc.FormDocuments
@@ -291,9 +302,18 @@ Function iBaseFormsClosed(oDoc As Object) As Integer
 				oForms.getByIndex(iForm).close
 			Next iForm
 		End If
-		
 	End If
-	iBaseFormsClosed = True
+	
+	'I don't yet know how to close Table and Query windows (like w/ Forms above, so for now this warning will have to do)
+	if iOpenTQs Then
+		If 	msgBox(iOpenTQs & " Table or Query window" & iif(iOpenTQs=1," is","s are") 					&_
+					" open & may contain unsaved records." & chr(10) & chr(10) 							&_
+					"Ok to Ignore? Or Cancel to be safe, manually close, & retry?",						 _
+					1+32+256,_
+					"CAUTION!") 				= 7 Then iBaseFormsClosed = False: Exit Function	'1=Ok/Cancel + 32="?" + 256=2nd button (Yes) is default
+	End If
+
+	iBaseFormsClosed = True		'Successful
 End Function
 
 
@@ -393,8 +413,8 @@ End Function
 Function GetFilterType(byVal sFileName as String) as String
 
 	'Get access to UNO methods ("services")
-	Dim oSFA 			As Object	:oSFA		= createUNOService ("com.sun.star.ucb.SimpleFileAccess"		)
-	Dim oTD 			As Object	:oTD		= createUnoService(	"com.sun.star.document.TypeDetection"	)
+	Dim oSFA 			As Object	:oSFA		= createUNOService("com.sun.star.ucb.SimpleFileAccess"		)
+	Dim oTD 			As Object	:oTD		= createUnoService("com.sun.star.document.TypeDetection"	)
 	
 	'Open given filename for reading
 '	Dim sURL 			As String	:sUrl		= ConvertToUrl(sFileName)
