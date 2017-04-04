@@ -1,4 +1,4 @@
-Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.12 ######
+Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.13 ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
@@ -45,16 +45,27 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	Dim iMaxCopies 	As Integer	:iMaxCopies = GETiMaxCopies()	'Max number of timestamped backup files to be retained (per file).  See GetiMaxCopies.
 	Dim sB(200) 	As String	:sB()		= GETsB()			'Array of file types to possibly backup
 
+	'--- Check for non-empty backup path ------------------------------------------------
+	if sPath = "" Then MsgBox(	"sPath=""""" & chr(10)												& chr(10) 			&_
+								"An empty path might cause accidental deletion of your document." 	& chr(10) & chr(10) &_
+								"Fix in this Module:"												& chr(10) & chr(10) &_
+								 "   My Macros & Dialogs"											& chr(10)			&_
+								 "       Standard" 													& chr(10)			&_
+								 "           AnnotatedBackups" 										& chr(10)			&_
+								 "               AnnotatedBackupsSettings" 							& chr(10) & chr(10) ,_
+								0+48,_
+								"FATAL SETUP ERROR"):stop	'0=oK + 48=Exclamation
+
 
 	'--- Get optional comment and honor abort request -----------------------------------
 	'(do this early, so as not to save or close anything if canceled)															'
 	Dim sComment	As String
-	sComment	 	= InputBox(	"(Reminders: iMaxCopies=" & iMaxCopies & ", relative backup path = ./" & sPath & ")" & chr(10) & chr(10) &_
-								"Optional backup description, (this gets appended to backup's filename):",_
-								"Filename Annotation","none")		'"none" is needed because an empty string and a cancel button are the same thing.
+	sComment = InputBox(	"(Reminders: iMaxCopies=" & iMaxCopies & ", relative backup path = ./" & sPath & ")" & chr(10) & chr(10) &_
+							"Optional backup description, (this gets appended to backup's filename):",_
+							"Filename Annotation","none")		'"none" is needed because an empty string and a cancel button are the same thing.
 	If sComment = "" Then Exit Sub
-	
-	sComment = iif(sComment = "none", "", " " & sComment)
+
+	sComment = iif(sComment = "none", "", " " & sComment)		'Remove word 'none', and add leading space to comments
 
 
 	'--- Get document -------------------------------------------------------------------															'
@@ -91,13 +102,13 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'Get out of any Base Form, and make sure all Base forms are closed, but without messing up oDoc.URL for other LO Modules
 	if oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") then	'If Base (main/outer dialog)	(Note: parent doesn't always exist to test, like in Base it isn't there).
-		if		not	iBaseFormsClosed(oDoc) Then Exit Sub					'so make sure that all forms are closed
+			iBaseFormsClosed(oDoc)											'so make sure that all forms are closed
 
 	Else 																	' other: A Base Form, or another LO module, i.e. Calc, Draw, Impress, Math, or Writer
 		If not isnull(oDoc.parent) then 									'If a Base form?
 			'Unravel - allow this to be run from within a Base Form		-Note!  A new, non-base docuemnt's URL is also empty.
 			DO WHILE sUrl_From = ""		: oDoc = oDoc.Parent	:sUrl_From	= oDoc.URL	:LOOP
-			if 	not	iBaseFormsClosed(oDoc) Then Exit Sub					'again, make sure that all forms are closed
+			iBaseFormsClosed(oDoc)											'so make sure that all forms are closed
 		End If
 	End If
 
@@ -112,9 +123,10 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	End If
 
 	If Not(oDoc.hasLocation) Then
-		Msgbox 	"ERROR - Your document was not been saved, so backup failed. " & _
-				"(Perhaps you tried saving to an unwritable folder or to a file already in use.)"
-		Exit Sub
+		Msgbox(	"Your document was not saved, so backup was not done. " & chr(10) & chr(10)			&_
+				"(Perhaps you tried saving to an unwritable folder or to a file already in use.)"	,_
+				0+48																				,_
+				"FATAL ERROR - DOCUMENT WAS NOT SAVED"):stop
 	End If
 
 
@@ -205,6 +217,9 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		Next i
 		
 	End If
+	
+	' --- If putting copies in the same directory as main document adjust for that ------
+	If sPath = "" Then iMaxCopies=iMaxCopies+1
 
 
 	' --- do other backups --------------------------------------------------------------
@@ -246,11 +261,10 @@ End Sub
 
 
 '##################################################################################################
-'############################################ FUNCTIONS ###########################################
 '##################################################################################################
 
 '=== Close any Base forms (prompting user if necessary) ===========================================
-Function iBaseFormsClosed(oDoc As Object) As Integer
+Sub iBaseFormsClosed(oDoc As Object)
 	'--- Count open Tables, Queries, & Forms (i.e. they are inside Frames of Frames in the Desktop)
 	Dim iOpenForms	As Integer	:iOpenForms	= 0		'Forms							-Can auto-close these
 	Dim iOpenTQs	As Integer	:iOpenTQs	= 0		'TQ		 = Tables or Queries	-Can't auto-close these (not yet at least)
@@ -258,27 +272,17 @@ Function iBaseFormsClosed(oDoc As Object) As Integer
 	Dim iFrame		As integer
 	Dim iForm		As integer
 
-
-'=======================================================================================
-'0 Lookup.odb - LibreOffice Base
-'0 b Companies - Lookup - LibreOffice Base: Table Data View
-'0 b Query1 - Lookup - LibreOffice Base: Table Data View
-'0 b Lookup.odb : Sample search and edit form - LibreOffice Base: Database Form
-
-
-
 	For iFrame=0 To StarDesktop.Frames.Count-1 Step 1
 
 		'Looking for titles like: "Lookup5.odb - LibreOffice Base"
 		If instr(StarDesktop.Frames.getByIndex(iFrame).Title, oDoc.Title & " - LibreOffice Base")<>0 Then
-'			msgbox(iFrame & " " & StarDesktop.Frames.getByIndex(iFrame).Title
 
 			For iForm=0 To StarDesktop.Frames.getByIndex(iFrame).Frames.Count-1 Step 1
 
 				'Looking for Forms which have titles like: "Lookup5.odb : <form name>"
 				If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 _
-				Then :iOpenForms	= iOpenForms+1	':msgbox "found a child window that's also a form"
-				Else :iOpenTQs		= iOpenTQs  +1	':msgbox "found a child window"
+				Then :iOpenForms	= iOpenForms+1	'found a child window that's also a form
+				Else :iOpenTQs		= iOpenTQs  +1	'found a child window
 				End if
 			Next iForm
 		End if
@@ -293,7 +297,7 @@ Function iBaseFormsClosed(oDoc As Object) As Integer
 					" to be closed before backup." & chr(10) & chr(10) 									&_
 					"Ok to close " & iif(iOpenForms=1,"it","them") & " now?",							 _
 					4+32+128,_
-					"Preparing to backup") 	= 7 Then iBaseFormsClosed = False: Exit Function		'4=Yes/No + 32="?" + 128=first button (Yes) is default
+					"Preparing to backup") 	= 7 Then stop	'4=Yes/No + 32="?" + 128=first button (Yes) is default
 
 		'-Close all my forms (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
 		Dim oForms 	As Object	:oForms	= oDoc.FormDocuments
@@ -310,30 +314,26 @@ Function iBaseFormsClosed(oDoc As Object) As Integer
 					" open & may contain unsaved records." & chr(10) & chr(10) 							&_
 					"Ok to Ignore? Or Cancel to be safe, manually close, & retry?",						 _
 					1+32+256,_
-					"CAUTION!") 				= 7 Then iBaseFormsClosed = False: Exit Function	'1=Ok/Cancel + 32="?" + 256=2nd button (Yes) is default
+					"CAUTION!") 			= 7 Then stop	'1=Ok/Cancel + 32="?" + 256=2nd button (Yes) is default
 	End If
 
-	iBaseFormsClosed = True		'Successful
-End Function
+End Sub
 
 
 
 '=== Return filename /wo path or ext ==============================================================
-Function GetFileName(byVal sNameWithFullPath as String, byval sSlash as String) as String
+Sub GetFileName(byVal sNameWithFullPath as String, byval sSlash as String) as String
 
 	Dim i as Long
 	Dim j as Long
 
 	GetFileName = ""
 
-	' Let's search from the end of the full name
-	' a "." that will indicate the end of the
-	' file name and the beginning of the extension
+	'Search from the end of the full name.  "." will indicate the end of the file name and the beginning of the extension
 	For i = Len(sNameWithFullPath) To 1 Step -1
 		If Mid(sNameWithFullPath, i, 1) = "." Then
 
-			' We have found a ".", so now we continue
-			' backwards and search for the path delimiter "\" or "/"
+			' We have found a ".", so now we continue backwards and search for the path delimiter "\" or "/"
 			For j = i - 1 to 1 Step -1
 				If Mid(sNameWithFullPath, j, 1) = sSlash Then
 
@@ -347,13 +347,13 @@ Function GetFileName(byVal sNameWithFullPath as String, byval sSlash as String) 
 		End If
 	Next i
    
-End Function
+End Sub
 
 
 
 '=== Return nth text field =========================================================================
 ' e.g. n=2 from "xxx|yyy|foo", gives "yyy".  (n=0 ok, but returns nothing)
-Function GetField(byVal sInput As String, byVal sDelimiter As String, ByVal n As Integer) 	As String
+Sub GetField(byVal sInput As String, byVal sDelimiter As String, ByVal n As Integer) 	As String
 
 	sInput = sDelimiter & sInput & sDelimiter							'To simplify searching sandwitch the input in outer delimiters
 	GetField = ""														'Default output if field or is empty found
@@ -364,9 +364,9 @@ Function GetField(byVal sInput As String, byVal sDelimiter As String, ByVal n As
 	Dim i 		As Integer
 	For i = 1 to n
 		iStart = InStr(iStart, sInput, sDelimiter)+1					'Char position after ith delimiter
-		If iStart = 1 			Then Exit Function						'If search fails, i.e. ran out of delimiters too soon			, then silently return an empty string
+		If iStart = 1 			Then Exit Sub							'If search fails, i.e. ran out of delimiters too soon			, then silently return an empty string
 	Next i
-	If 	iStart = Len(sInput)+1 	Then Exit Function						'If search fails, i.e. found nth delimiter, but its the last one, then silently return an empty string
+	If 	iStart = Len(sInput)+1 	Then Exit Sub							'If search fails, i.e. found nth delimiter, but its the last one, then silently return an empty string
 
 	'B) Find the character position before the next delimiter
 	Dim iEnd	As Long	:iEnd = InStr(iStart, sInput, sDelimiter)		'Char position at    found delimiter n+1
@@ -374,11 +374,11 @@ Function GetField(byVal sInput As String, byVal sDelimiter As String, ByVal n As
 	'C) Return the portion of string between the two delimiters
 	GetField = RTrim(Mid(sInput, iStart, iEnd - iStart))				'Input, Start, Length	(ignore extra delimiters we put on)
 
-End Function
+End Sub
 
 
 ''--Tests to make sure code above is working (uncomment and single step through)
-'function test_GetField()	
+'Sub test_GetField()	
 '  dim s as string
 '
 '  'These should all return "", except as noted
@@ -404,37 +404,31 @@ End Function
 '
 '  s = getfield("x 	 "	, "|", 1)			'should be "x" (should remove mixed trailing tabs and spaces)
 '  dim i as integer: i =len(s)				'should be 1
-'end function
+'end Sub
 
 
 
 '=== Returns file filter type =====================================================================
 ' 	Credit: http://www.oooforum.org/forum/viewtopic.phtml?t=52047
-Function GetFilterType(byVal sFileName as String) as String
+Sub GetFilterType(byVal sFileName as String) as String
 
 	'Get access to UNO methods ("services")
 	Dim oSFA 			As Object	:oSFA		= createUNOService("com.sun.star.ucb.SimpleFileAccess"		)
 	Dim oTD 			As Object	:oTD		= createUnoService("com.sun.star.document.TypeDetection"	)
 	
 	'Open given filename for reading
-'	Dim sURL 			As String	:sUrl		= ConvertToUrl(sFileName)
 	Dim oInpStream 		As Object	:oInpStream	= oSFA.openFileRead(ConvertToUrl(sFileName))			'open given filenmae using ucb.SimpleFileAccess 
 
 		'Get it's Type
-'		Dim aProps(0) 	As new  com.sun.star.beans.PropertyValue
-'			aProps(0).Name	= "InputStream"
-'			aProps(0).Value	=   oInpStream
-
-'		GetFilterType	= oTD.queryTypeByDescriptor(aProps(), true)										'queryTypeByDescriptor
 		GetFilterType	= oTD.queryTypeByDescriptor(MakePropertyValue("InputStream",oInpStream), true)	'queryTypeByDescriptor
 
 	oInpStream.closeInput()																				'close
 
-End Function
+End Sub
 
 
 '=== Create and return a new com.sun.star.beans.PropertyValue =====================================
-Function MakePropertyValue(Optional sName As String, Optional sValue) As com.sun.star.beans.PropertyValue
+Sub MakePropertyValue(Optional sName As String, Optional sValue) As com.sun.star.beans.PropertyValue
 
     Dim oPropertyValue As New com.sun.star.beans.PropertyValue
 
@@ -443,7 +437,7 @@ Function MakePropertyValue(Optional sName As String, Optional sValue) As com.sun
 
     MakePropertyValue() = oPropertyValue
 
-End Function
+End Sub
 
 
 ' === possibly remove older backups =====================================================
@@ -483,7 +477,7 @@ End Sub
 
 
 '=== insertion sort (oldest first) ================================================================
-Function iSort(mArray)
+Sub iSort(mArray)
 	Dim Lb 	as integer	:Lb = lBound(mArray)	'lower array bound
 	Dim Ub 	as integer	:Ub = uBound(mArray) 	'upper array bound
 	
@@ -503,11 +497,11 @@ Function iSort(mArray)
 
 		mArray(iC+1) = sT											'Finally, insert moved element here (might even be the very first position)
 	Next iT
-End Function
+End Sub
 
 
-''--Test of iSort() function
-'Function test_iSort()
+''--Test of iSort()
+'Sub test_iSort()
 '	Dim mArrayA(2) As String
 '	mArrayA(0) = "x3"
 '	mArrayA(1) = "x2"
@@ -518,16 +512,16 @@ End Function
 '	Dim x0 As String	:x0 = mArrayA(0)
 '	Dim x1 As String	:x1 = mArrayA(1)
 '	Dim x2 As String	:x2 = mArrayA(2)
-'End Function
+'End Sub
 
 
 
 ' === Trim spaces and tabs from right end =========================================================
-Function RTrim(str As String) As String
-	RTrim=str																		'simplify code; use returned value as working string
-	Dim i as Long																	'character counter (from end to start)
+Sub RTrim(str As String) As String
+	RTrim=str																	'simplify code; use returned value as working string
+	Dim i as Long																'character counter (from end to start)
 	For i = Len(RTrim) to 1 step -1
-		If right(RTrim,1) <> chr(9) and right(RTrim,1) <> " " Then Exit Function	'if trailing white space not found we're done
-		RTrim = left(RTrim,len(RTrim)-1)											'otherwise remove trailing white space, step left, repeat
+		If right(RTrim,1) <> chr(9) and right(RTrim,1) <> " " Then Exit Sub		'if trailing white space not found we're done
+		RTrim = left(RTrim,len(RTrim)-1)										'otherwise remove trailing white space, step left, repeat
 	Next
-End function
+End Sub
