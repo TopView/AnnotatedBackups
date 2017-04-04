@@ -1,4 +1,4 @@
-Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.13 ######
+Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.14 ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
@@ -217,9 +217,6 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		Next i
 		
 	End If
-	
-	' --- If putting copies in the same directory as main document adjust for that ------
-	If sPath = "" Then iMaxCopies=iMaxCopies+1
 
 
 	' --- do other backups --------------------------------------------------------------
