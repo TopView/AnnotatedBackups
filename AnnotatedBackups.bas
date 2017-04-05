@@ -1,4 +1,4 @@
-Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.14 ######
+Option Explicit	'BASIC	###### AnnotatedBackups v 1.5.15 ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
@@ -138,7 +138,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	Dim sDocNameWithFullPath 	As String	:sDocNameWithFullPath	= ConvertFromURL(sDocURL)	'Source path/filename
 
 
-	'Detect from path if we have "/" (Linux) or "\" (Windows)
+	' --- Detect from path if we have "/" (Linux) or "\" (Windows) ----------------------
 	Dim sSlash 		As String
 	Dim sOtherSlash As String
 	If Instr(1, sDocNameWithFullPath, "/") > 0 _
@@ -148,40 +148,17 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 
 	' --- extract filename --------------------------------------------------------------
-	Dim sDocName As String	:sDocName = GetFileName(sDocNameWithFullPath, sSlash)				'Source filename
+	Dim sDocName	As String	:sDocName = GetFileName(sDocNameWithFullPath, sSlash)				'Source filename
 
 
-	' If sPath contains the wrong delimiter for our OS, replace it
-	Dim s As String	:s = ""						'move sPath into this char at a time, but replacing / with \ (or vise versa)
-	Dim i As Integer							'Index used three places
-	For i = 1 to Len(sPath)
-		If Mid(sPath, i, 1) = sOtherSlash _
-			Then :s = s & sSlash
-			Else :s = s & Mid(sPath, i, 1)
-		End If
-	Next i
-	sPath = s
-
-
-	' --- default folder ----------------------------------------------------------------
+	' --- Backup folder -----------------------------------------------------------------
 	' sPath is relative.
-	'	""		relative - put backups where document is stored		.../basedir/.
 	'	"foo	relative - put backups where document is stored		.../basedir/foo/.
-	'	"/"		relative - put backups where document is stored		.../basedir/.			Note: Leading slash is ok too
 	'	"/foo	relative - put backups where document is stored		.../basedir/foo/.		Note: Leading slash is ok too
-	i 										=  Len(sDocNameWithFullPath)
-	While 									   Mid(sDocNameWithFullPath, i,  1) <> sSlash	:i=i-1	:Wend		'strip off doc filename to get abs ppath
-	Dim sAbsPath	As String	:sAbsPath	= Left(sDocNameWithFullPath, i - 1) & "/" & sPath					'DocumentPath/sPath
-
-
-	' --- Check if the backup folder exists, if not we create it ------------------------
-	On Error Resume Next
-	MkDir sAbsPath																	'Create directory (if not already found)
-	On Error Goto 0
-
-	
-	' --- Add a slash at the end of the path, if not already present --------------------
-	If Right(sAbsPath, 1) <> sSlash Then sAbsPath = sAbsPath & sSlash
+	Dim i			As Integer	:i			=  Len(sDocNameWithFullPath)
+	'note: Star Basic does not have a instrrev(), so this is the workaround:
+	While 									   Mid(sDocNameWithFullPath, i,  1) <> sSlash	:i=i-1	:Wend	'strip off doc filename to get abs path
+	Dim sAbsPath	As String	:sAbsPath	= Left(sDocNameWithFullPath, i) & sPath & sSlash & sDocName & sSlash	'/DocumentPath/sPath/DocName/
 
 	
 	' --- Save current document changes -------------------------------------------------
@@ -226,11 +203,12 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	Dim sDocType 		As String
 	Dim sExt			As String	'file name extension
 	Dim sSaveToURL		As String
+	
 	i = 1
 	While sB(i) <> ""
-		If 																					GetField(sB(i), "|", 1) = "BACKUP" Then	'Future: replace GetField -> split the line once into a array
+		If 																				GetField(sB(i), "|", 1) = "BACKUP" Then	'Future: replace GetField -> split the line once into a array
 
-			sDocType 			= 															GetField(sB(i), "|", 2)
+			sDocType 			= 														GetField(sB(i), "|", 2)
 			If  _
 				(sDocType = "Base"		And oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument"			)) Or _
 				(sDocType = "Calc"		And oDoc.supportsService("com.sun.star.sheet.SpreadsheetDocument"			)) Or _
@@ -238,20 +216,35 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 				(sDocType = "Impress"	And oDoc.supportsService("com.sun.star.presentation.PresentationDocument"	)) Or _
 				(sDocType = "Math"		And oDoc.supportsService("com.sun.star.formula.FormulaProperties"			)) Or _
 				(sDocType = "Writer"	And oDoc.supportsService("com.sun.star.text.TextDocument"					)) 	  _
-			Then																											'??Think this is right enough for formula.*
+			Then																										'??Think this is right enough for formula.*
 
-				sExt 			= 															GetField(sB(i), "|", 3)			'file name extension (used 2 places)
+				sExt 			= 														GetField(sB(i), "|", 3)			'file name extension (used 2 places)
+				
+				' --- Check if the backup folder exists, if not we create it ------------------------
+				On Error Resume Next
+				MkDir 									sAbsPath														'Create directory (if not already found)
+				On Error Goto 0
+	
+					sSaveToURL	= ConvertToURL(  		sAbsPath &   sBackupName & "." & sExt)							'Name to save to
 
-					sSaveToURL	= ConvertToURL(  		sAbsPath &   sBackupName & "." & sExt)								'Name to save to
-					oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 		GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
+					On Error Goto StoreToURLError
+'take array out of error control - this needs further testing
+					oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 	GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
+					'This line above fails if original document is *.xlsx.  To fix save the document as *.ods first
 
-					PruneBackupsToMaxSize(iMaxCopies,	sAbsPath,Len(sBackupName & "." & sExt),sDocName,sExt)				'And finally possibly remove older backups to limit number of them kept
+					On Error Goto 0
+					PruneBackupsToMaxSize(iMaxCopies,	sAbsPath,Len(sBackupName & "." & sExt),sDocName,sExt)			'And finally possibly remove older backups to limit number of them kept
 
 			End If
 		End If
 		i = i + 1
 	Wend
-		
+Exit Sub
+
+'this needs further testing
+StoreToURLError:
+	msgbox(Error$ & "Perhaps your original file was not in an ODF (OpenOffice Document Format), e.g. it might have been in .xlsx",0+48,"SAVE FAILED") '0=ok + 48=Exclamation
+'	stop	
 End Sub
 
 
@@ -261,7 +254,7 @@ End Sub
 '##################################################################################################
 
 '=== Close any Base forms (prompting user if necessary) ===========================================
-Sub iBaseFormsClosed(oDoc As Object)
+Private Sub iBaseFormsClosed(oDoc As Object)
 	'--- Count open Tables, Queries, & Forms (i.e. they are inside Frames of Frames in the Desktop)
 	Dim iOpenForms	As Integer	:iOpenForms	= 0		'Forms							-Can auto-close these
 	Dim iOpenTQs	As Integer	:iOpenTQs	= 0		'TQ		 = Tables or Queries	-Can't auto-close these (not yet at least)
@@ -319,7 +312,7 @@ End Sub
 
 
 '=== Return filename /wo path or ext ==============================================================
-Sub GetFileName(byVal sNameWithFullPath as String, byval sSlash as String) as String
+Private Sub GetFileName(byVal sNameWithFullPath as String, byval sSlash as String) as String
 
 	Dim i as Long
 	Dim j as Long
@@ -350,7 +343,7 @@ End Sub
 
 '=== Return nth text field =========================================================================
 ' e.g. n=2 from "xxx|yyy|foo", gives "yyy".  (n=0 ok, but returns nothing)
-Sub GetField(byVal sInput As String, byVal sDelimiter As String, ByVal n As Integer) 	As String
+Private Sub GetField(byVal sInput As String, byVal sDelimiter As String, ByVal n As Integer) 	As String
 
 	sInput = sDelimiter & sInput & sDelimiter							'To simplify searching sandwitch the input in outer delimiters
 	GetField = ""														'Default output if field or is empty found
@@ -407,7 +400,7 @@ End Sub
 
 '=== Returns file filter type =====================================================================
 ' 	Credit: http://www.oooforum.org/forum/viewtopic.phtml?t=52047
-Sub GetFilterType(byVal sFileName as String) as String
+Private Sub GetFilterType(byVal sFileName as String) as String
 
 	'Get access to UNO methods ("services")
 	Dim oSFA 			As Object	:oSFA		= createUNOService("com.sun.star.ucb.SimpleFileAccess"		)
@@ -425,20 +418,18 @@ End Sub
 
 
 '=== Create and return a new com.sun.star.beans.PropertyValue =====================================
-Sub MakePropertyValue(Optional sName As String, Optional sValue) As com.sun.star.beans.PropertyValue
-
+Private Sub MakePropertyValue(Optional sName As String, Optional sValue As Variant) As com.sun.star.beans.PropertyValue
     Dim oPropertyValue As New com.sun.star.beans.PropertyValue
 
     If Not IsMissing(sName	) Then oPropertyValue.Name 	= sName   
     If Not IsMissing(sValue	) Then oPropertyValue.Value = sValue
 
     MakePropertyValue() = oPropertyValue
-
 End Sub
 
 
 ' === possibly remove older backups =====================================================
-Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLenBackupName As Integer, sDocName As String, sExt As String)
+Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLenBackupName As Integer, sDocName As String, sExt As String)
 	if iMaxCopies = 0 then exit sub											'If iMaxCopies is = 0, there is no need to read, sort or delete any files.
 
 		
@@ -474,7 +465,7 @@ End Sub
 
 
 '=== insertion sort (oldest first) ================================================================
-Sub iSort(mArray)
+Private Sub iSort(mArray)
 	Dim Lb 	as integer	:Lb = lBound(mArray)	'lower array bound
 	Dim Ub 	as integer	:Ub = uBound(mArray) 	'upper array bound
 	
@@ -514,7 +505,7 @@ End Sub
 
 
 ' === Trim spaces and tabs from right end =========================================================
-Sub RTrim(str As String) As String
+Private Sub RTrim(str As String) As String
 	RTrim=str																	'simplify code; use returned value as working string
 	Dim i as Long																'character counter (from end to start)
 	For i = Len(RTrim) to 1 step -1
