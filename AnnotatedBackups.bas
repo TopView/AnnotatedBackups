@@ -3,8 +3,8 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
 Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
-	Dim sProgramsVersion	As String :sProgramsVersion	= "1.5.16"	'AnnotatedBackups current version
-	Dim sSettingsVersion	As String :sSettingsVersion	= "2"		'AnnotatedBackupsSettings minimum required version
+	Dim sProgramsVersion	As String :sProgramsVersion	= "1.5.17"	'AnnotatedBackups current version
+	Dim sSettingsVersion	As String :sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
 
 
 	' --- NAME AND PURPOSE -----------------------------------------------------------------------------------------------------
@@ -47,7 +47,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'=== Useful Constants =================================================================================
 	'-Base library names:
-	Const sLibraryName		= "Standard"					'Name of settings Library
+	Const  sLibraryName		= "Standard"					'Name of settings Library
 	Const sProgramsName		= "AnnotatedBackups"			'Name of programs Module
 	Const sSettingsName 	= "AnnotatedBackupsSettings"	'Name of settings Module (prefix)
 
@@ -93,9 +93,9 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'-Make newer settings version if older version found
 	If iVersion < sSettingsVersion Then 			'No settings found - must create settings
-	
+
 		CreateSettingsModule(oLib, sProgramsName, SettingsName(sSettingsName,sSettingsVersion), sProgramsVersion)
-		
+
 		'for test:
 			'iVersion = 0
 			'sSettingsVersion = 2
@@ -232,7 +232,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	On Error GoTo 0
 
 
-	'--- Adjust oDoc if called from a Base Form, and also close any open Base Forms, but without chaning oDoc used by other LO modules
+	'--- Adjust oDoc if called from a Base Form, and also close any open Base Forms and Reports, but without chaning oDoc used by other LO modules
 '	MsgBox "Title: " & oDoc.Title &CR & "URL: " & oDoc.URL &CR & "db: " & oDoc.supportsService("com.sun.star.sdb.OfficeDatabaseDocument") & "    parent: " & iif(isnull(oDoc.parent),"null","not"): stop
 	'app	form?	state	title										db	parent	url
 	'------	-------	-------	-------------------------------------------	---	-------	---------------------------------------------------------------------------
@@ -434,60 +434,145 @@ End Function
 
 '=== Close any Base forms (prompting user if necessary) ===========================================
 Private Sub iBaseFormsClosed(oDoc As Object)
-	'--- Count open Tables, Queries, & Forms (i.e. they are inside Frames of Frames in the Desktop)
-	Dim iOpenForms	As Integer	:iOpenForms	= 0		'Forms							-Can auto-close these
-	Dim iOpenTQs	As Integer	:iOpenTQs	= 0		'TQ		 = Tables or Queries	-Can't auto-close these (not yet at least)
+	'-End of line characters, (can't make these Const),  :-( tip: these don't get passed to subs
+	Dim C2 As String	: C2 = chr(10)&chr(10)
+
+	'--- Count design mode: Tables, Queries, Forms & Reports, (i.e. they are inside Frames of Frames in the Desktop)
 	
-	Dim iFrame		As integer
-	Dim iForm		As integer
+	'Table	design:*	ToGet.odb : links.address counties, hi - LibreOffice Base: Table Design					 - LibreOffice Base: 
+	'Table	view  :		links.address cities, hi - ToGet - LibreOffice Base: Table Data View					 - LibreOffice Base: 
+	'
+	'Query	design:* 	ToGet.odb : Items to get query - LibreOffice Base: Query Design							 - LibreOffice Base: 
+	'Query	view  :		Items to get query - ToGet - LibreOffice Base: Table Data View							 - LibreOffice Base: 
+	'
+	'Form	design:*	ToGet.odb : links.items to get - LibreOffice Base: Database Form						 - LibreOffice Base: 
+	'Form	view  :*	ToGet.odb : links.items to get - LibreOffice Base: Database Form						 - LibreOffice Base: (same as design!)
+	'
+	'Report design:*	ToGet.odb : Items to get ok by store report - LibreOffice Base: Oracle Report Builder	 - LibreOffice Base: 
+	'Report view  :		(not under this parent)
+	'
+	'Truths:
+	'	If "ToGet.odb : " prefix then we need to save this
+	'	If " - LibreOffice Base: Table Design" 			suffix then it's a table 	in design
+	'	if " - LibreOffice Base: Query Design" 			suffix then it's a query 	in design
+	'	if " - LibreOffice Base: Database Form" 		suffix then it's a form 	in design or view
+	'	if " - LibreOffice Base: Oracle Report Builder" suffix then it's a report 	in design
 
-	For iFrame=0 To StarDesktop.Frames.Count-1 Step 1
 
-		'Looking for titles like: "Lookup5.odb - LibreOffice Base"
-		If instr(StarDesktop.Frames.getByIndex(iFrame).Title, oDoc.Title & " - LibreOffice Base")<>0 Then
+	Dim iOpenTables		As Integer	:iOpenTables	= 0		'Can't auto-close these (not yet at least)
+	Dim iOpenQueries	As Integer	:iOpenQueries	= 0		'Can't auto-close these (not yet at least)
+	Dim iOpenForms		As Integer	:iOpenForms		= 0		'Can auto-close these
+	Dim iOpenReports	As Integer	:iOpenReports	= 0		'Can auto-close these
+	
+	Dim iFrame			As Integer	'Frame index
+	Dim iFrameSub		As Integer	'Sub frame index
 
-			For iForm=0 To StarDesktop.Frames.getByIndex(iFrame).Frames.Count-1 Step 1
+	Dim oFrames			As Object	: oFrames = StarDesktop.Frames	'All  		frames
+	Dim oFrame			As Object									'Each		frame
+	Dim oBaseFrames		As Object									'All  base	frames
+	Dim oBaseFrame		As Object									'Each base	frame
 
-				'Looking for Forms which have titles like: "Lookup5.odb : <form name>"
-				If instr(StarDesktop.Frames.getByIndex(iFrame).Frames.getByIndex(iForm).Title,oDoc.Title & " : ")<>0 _
-				Then :iOpenForms	= iOpenForms+1	'found a child window that's also a form
-				Else :iOpenTQs		= iOpenTQs  +1	'found a child window
-				End if
-			Next iForm
+	Dim sTxt			As String									: sTxt = "Me: " & oDoc.Title & chr(10)& chr(10)	& "Parents / Children:" & chr(10) 'place to compile output
+	
+	For iFrame=0 To oFrames.Count-1 Step 1
+
+		'Looking for titles like: "Lookup5.odb - LibreOffice Base"	(First find our parent and ignore all other parents)
+		oFrame = oFrames.getByIndex(iFrame)						: sTxt = sTxt & chr(10) & "--" & oFrame.Title & chr(10)
+		
+'		If instr(oFrame.Title, oDoc.Title & " - LibreOffice Base")<>0 Then
+		If isSuffix(oFrame.Title, oDoc.Title & " - LibreOffice Base") Then
+
+			oBaseFrames = oFrame.Frames
+			For iFrameSub=0 To oBaseFrames.Count-1 Step 1
+			
+				oBaseFrame = oBaseFrames.getByIndex(iFrameSub)	: sTxt = sTxt & "      " & oBaseFrame.Title & chr(10)
+				
+				Select Case True
+					Case True XOR NOT (isSuffix(oBaseFrame.Title," - LibreOffice Base: Table Design"			))
+						iOpenTables		= 1+iOpenTables
+					Case True XOR NOT (isSuffix(oBaseFrame.Title," - LibreOffice Base: Query Design"			))
+						iOpenQueries	= 1+iOpenQueries
+					Case True XOR NOT (isSuffix(oBaseFrame.Title," - LibreOffice Base: Database Form"			))
+						iOpenForms		= 1+iOpenForms
+					Case True XOR NOT (isSuffix(oBaseFrame.Title," - LibreOffice Base: Oracle Report Builder"	))
+						iOpenReports	= 1+iOpenReports
+					Case Else
+						MsgBox("Title error: " & oBaseFrame.Title):stop
+				End Select
+
+			Next iFrameSub
 		End if
 	Next iFrame
+	
+
+	MsgBox sTxt & chr(10) & "iOpenTables "		& iOpenTables _
+				& chr(10) & "iOpenQueries "		& iOpenQueries _
+				& chr(10) & "iOpenForms "		& iOpenForms _
+				& chr(10) & "iOpenReports "		& iOpenReports	_
+				': stop
 
 
-	'--- Now if any forms are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
+
+	'--- Now if any forms or reports are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
 	'		(Because I can't figure out how to save any current records changes before the backup).
-	if iOpenForms Then
+	Dim i			As Integer	'documents index
+	if iOpenForms+iOpenReports Then
 
-		If 	MsgBox(	iOpenForms & " form" & iif(iOpenForms=1," is open and needs","s are open and need")_
+		If 	MsgBox(	_
+			 iOpenForms 	& " form" 	& iif(iOpenForms  =1,"","s") & " and "_
+			&iOpenReports	& " report" & iif(iOpenReports=1,"","s")_
+		 	& iif(iOpenForms+iOpenReports=1," is open and needs"," are open and need")_
 			&		" to be closed before backup."_
-			&C2	&	"Ok to close " & iif(iOpenForms=1,"it","them") & " now?"_
-			_
+			&C2	&	"Ok to close " _
+			& iif(iOpenForms+iOpenReports=1,"it","them") & " now?"_
 			,4+32+128_
 			,"Preparing to backup") = 7 Then stop	'4=Yes/No + 32="?" + 128=first button (Yes) is default
 
-
-		'-Close all my forms (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
-		Dim oForms 	As Object	:oForms	= oDoc.FormDocuments
+		'-Close all my forms    (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
+		Dim oForms 	As Object		:oForms		= oDoc.FormDocuments
 		If oForms.count Then 
-			For iForm=0 To oForms.count-1
-				oForms.getByIndex(iForm).close
-			Next iForm
+			For i=0 To oForms.count-1
+'mri oForms.getByIndex(i) : stop
+				oForms.getByIndex(i).close
+			Next i
+		End If
+		
+		'-Close all my reports (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
+		Dim oReports 	As Object	:oReports	= oDoc.ReportDocuments
+		If oReports.count Then 
+			For i=0 To oReports.count-1
+				oReports.getByIndex(i).close
+			Next i
 		End If
 	End If
 	
-	'I don't yet know how to close Table and Query windows (like w/ Forms above, so for now this warning will have to do)
-	if iOpenTQs Then
-		If 	MsgBox(	iOpenTQs & " Table or Query window" & iif(iOpenTQs=1," is","s are")_
+	
+	'I don't yet know how to close Table or Query windows (like w/ Forms above, so for now this warning will have to do)
+	if iOpenTables+iOpenQueries Then
+		If 	MsgBox(	_
+			 iOpenTables & " Table"  & iif(iOpenTables	=1,""	,"s"	) & " and "_
+			&iOpenQueries & " Quer"  & iif(iOpenQueries	=1,"y"	,"ies"	) & iif(iOpenTables+iOpenQueries=1," is"," are")_
 			&		" open & may contain unsaved records."_
 			&C2	&	"Ok to Ignore? Or Cancel to be safe, manually close, & retry?"						 	 _
 			,1+32+256_
 			,"CAUTION!") 			= 7 Then stop	'1=Ok/Cancel + 32="?" + 256=2nd button (Yes) is default
+			
+		'-Close all my Tables & Queries (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
+'mri oDoc:stop
+		
 	End If
 
+End Sub
+
+
+'--- Test string for a suffix
+Private Sub isSuffix(s1 As String, s2 As String) As Boolean	'Look to see if s2 is suffix in s1
+'	msgbox Right(s1,len(s2))
+	isSuffix = (Right(s1,len(s2)) = s2)
+End Sub
+Private Sub isSuffixTest()
+	MsgBox isSuffix("this is a test" , "is a test")	'true
+	MsgBox isSuffix("this is a test2", "is a test")	'false
 End Sub
 
 
@@ -734,13 +819,17 @@ End Function
 
 ' === Copy code below and use it to create a new settings module of the given version =============
 Sub CreateSettingsModule(oLib As Object, sProgramsName As String, sSettingsNameV As String, sProgramsVersion As String)
+	'-End of line characters, (can't make these Const),  :-( tip: these don't get passed to subs
+	Dim CR As String	: CR = chr(10)
+	Dim C2 As String	: C2 = chr(10)&chr(10)
+
 '	mri oLib:stop
 
 	'Extract this file's code (Basic) in text
-	Dim sDelimiter		As String	:sDelimiter			= "'$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"&chr(10)
+	Dim sDelimiter		As String	:sDelimiter			= "'$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"&CR
 	Dim sProgramsSource	As String	:sProgramsSource	= oLib.getByName(sProgramsName)					'text of this entire file
 	Dim sSettingsSource	As String	:sSettingsSource	= _
-		"Option Explicit	'BASIC	###### " & sSettingsNameV & " for caller V " & sProgramsVersion & " ######" &chr(10)&chr(10)&_
+		"Option Explicit	'BASIC	###### " & sSettingsNameV & " for caller V " & sProgramsVersion & " ######" &C2 &_
 		Right(sProgramsSource,len(sProgramsSource)-instr(1,sProgramsSource,sDelimiter)-len(sDelimiter))	'text of just template below
 
 	oLib.insertByName(sSettingsNameV, sSettingsSource)	'Copy template below into new settings module
@@ -1069,3 +1158,17 @@ Sub GETsB()			As Array
 	
 	GETsB	= Sb
 End Sub
+
+
+' %%%%%% NOTES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+'	InStr(		 str, str)
+'	InStr(start, str, str)
+'	InStr(start, str, str, mode)
+'		Attempt to find string 2 in string 1. Returns 0 if not found and starting location if it is found.
+'		The optional start argument indicates where to start looking. The default value for mode is 1
+'		(case-insensitive comparison). Setting mode to 0 performs a case-sensitive comparison.
+'
+'	InStrRev(str, find, start, mode)
+'		Return the position of the first occurrence of one string within another, starting from the right
+'		side of the string. Only available with “Option VBASupport 1”. Start and mode are optional.
+
