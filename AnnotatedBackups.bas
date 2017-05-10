@@ -2,9 +2,42 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
+	Const sProgramsVersion	= "1.5.18"	'AnnotatedBackups current version
+	Const sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
+
+
+' === Global constants used for MsgBox() ==========================================================
+	'Buttons displayed
+	Const sbOkOnly				=  0
+	Const sbOkCancel			=  1
+	Const sbAbortRetryIgnore	=  2
+	Const sbYesNoCancel			=  3
+	Const sbYesNo				=  4
+	Const sbRetryCancel			=  5
+
+	'Icons displayed
+	Const sbStop				= 16
+	Const sbQuestion			= 32
+	Const sbExclamation			= 48
+
+	'Default button
+	Const sbDefaultButton1		=128	'first button is default
+	Const sbDefaultButton2		=256	'2nd   button is default
+	Const sbDefaultButton3		=512	'3nd   button is default
+
+	'Answers returned
+	Const sbOK					=  1
+	Const sbCancel				=  2
+	Const sbAbort				=  3
+	Const sbRetry				=  4
+	Const sbIgnore				=  5
+	Const sbYes					=  6
+	Const sbNo					=  7
+
+
+
+' === MAIN PROGRAM - CALLED FROM MENU BUTTON ======================================================
 Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
-	Dim sProgramsVersion	As String :sProgramsVersion	= "1.5.17"	'AnnotatedBackups current version
-	Dim sSettingsVersion	As String :sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
 
 
 	' --- NAME AND PURPOSE -----------------------------------------------------------------------------------------------------
@@ -54,8 +87,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	'-End of line characters, (can't make these Const),  :-( tip: these don't get passed to subs
 	Dim CR As String	: CR = chr(10)
 	Dim C2 As String	: C2 = chr(10)&chr(10)
-
-
+	
 
 	' === First get or create settings and if old possibly update =========================================
 	'-Search my modules for the highest possible settings file version#
@@ -86,8 +118,9 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'-Check sSettingsVersion sanity
 	If sSettingsVersion < iVersion Then MsgBox(_
-		"sSettingsVersion(=" & sSettingsVersion & ") should not be less than discovered iVersion(=" & iVersion & ")"_
-		,0+48_
+		 "sSettingsVersion(=" & sSettingsVersion & ") should not be less than discovered iVersion(=" & iVersion & ")" & C2 _
+		&"(If you wanted to undo a version then you must also delete the version library.)" _
+		,sbOkOnly+sbExclamation _
 		,"FATAL CONFIGURATION ERROR"):stop
 
 
@@ -127,9 +160,9 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 			&CR &	"CANCEL to abort this backup, so you can first edit "_
 			& 						iif(iVersion=0, "", "or migrate ") & "your settings."_
 			_
-			,1+32+128_
+			,sbOkCancel+sbQuestion+sbDefaultButton1 _
 			,iif(iVersion=0, "A ", "A NEWER ") & " SETTINGS MODULE WAS JUST INSTALLED"_
-			) = 2_
+			) = sbCancel _
 		Then stop	'setup: 1=Ok/Cancel + 32=question mark + 128=first button is default	results: 2=Cancel
 		
 	End If
@@ -143,7 +176,8 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 
 	'This is to simulate something like this JavaScript syntax:  [iVersion].GETsPath()" which allows variable object notation, and which Basic doesn't support.
-	Select Case sSettingsVersion
+	Dim sSettingsVer	As String :sSettingsVer	= sSettingsVersion			'AnnotatedBackupsSettings minimum required version - need a variable for the Select Case!
+	Select Case sSettingsVer
 
 		Case 1																'Simple old style moudle name, w/o version suffix
 			sPath 		= AnnotatedBackupsSettings.GETsPath()
@@ -170,7 +204,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		'Failsafe if version updated w/o extending the above case statements
 		Case Is > 4
 			MsgBox("OOPS, select statement is too short for iVersion = " & iVersion & "." &C2 &_
-					"Increase the number of case statements to fix this." ,0+48 ,"FATAL ERROR"):stop
+					"Increase the number of case statements to fix this." ,sbOkOnly+sbExclamation ,"FATAL ERROR"):stop
 			
 	End Select
 			
@@ -180,17 +214,17 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'--- Check for reasonable iMaxCopies ------------------------------------------------
 	Dim iMinCopies	As Integer	:iMinCopies	= 10
-	Dim iMsgBoxResult		As Integer	:iMsgBoxResult	= 7		'6=yes(Keep all backups), 7=no (ok to use iMaxCopies as is), 2=cancel
+	Dim iMsgBoxResult		As Integer	:iMsgBoxResult	= sbNo
 	If iMaxCopies < iMinCopies Then iMsgBoxResult = MsgBox(_
 				"iMaxCopies(" & iMaxCopies & ") is lower than iMinCopies (" & iMinCopies & "). Ignore?"_
 	 	&C2 &	"YES: Ignore and keep ALL backups."_
 	 	&C2 &	"NO: Use iMaxCopies as is, (this is for testing only)"_
 		&C2 &	"CANCEL to stop, so you can update iMaxCopies in:"_
 		&CR &	"    "  &SettingsName(sSettingsName,iVersion)_
-		,3+48+128_
-		,"SETUP WARNING: iMaxCopies IS UNEXPECTEDLY LOW")	'3=Yes/No/Cancel + 48=Exclamation icon + 128=first button (Yes) is default
-	If iMsgBoxResult=2 Then stop
-	'=7 if ok to use iMaxCopies
+		,sbYesNoCancel+sbExclamation+sbDefaultButton1 _
+		,"SETUP WARNING: iMaxCopies IS UNEXPECTEDLY LOW")
+	If iMsgBoxResult=sbCancel Then stop
+	'=sbNo if ok to use iMaxCopies
 'MsgBox("answer" & iMsgBoxResult): stop
 
 
@@ -203,8 +237,16 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		&CR	&	"       Standard"_
 		&CR	&	"           AnnotatedBackups"_
 		&CR	&	"               AnnotatedBackupsSettings"_
-		,0+48_
-		,"FATAL SETUP ERROR"):stop	'0=oK + 48=Exclamation icon
+		,sbOkOnly+sbExclamation _
+		,"FATAL SETUP ERROR"):stop
+
+
+	'--- Check that no slashes in backup path -------------------------------------------
+	if instr(sPath,"/") + instr(sPath,"\") Then MsgBox(_
+				"sPath=""" & sPath & """"_
+		&C2 &	"This relative path should not contain a / or \ (slash or backslash)."_
+		,sbOkOnly+sbExclamation _
+		,"FATAL SETUP ERROR"):stop
 
 
 	'--- Get optional comment and honor abort request -----------------------------------
@@ -284,8 +326,8 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	If Not(oDoc.hasLocation) Then MsgBox(_
 				"Your document was not saved, so backup was not done. "_
 		&C2 &	"(Perhaps you tried saving to an unwritable folder or to a file already in use.)"_
-		,0+48_
-		,"FATAL ERROR - DOCUMENT WAS NOT SAVED"):stop	'0=Ok + 48=Exclamation
+		,sbOkOnly+sbExclamation _
+		,"FATAL ERROR - DOCUMENT WAS NOT SAVED"):stop
 
 
 
@@ -402,8 +444,7 @@ Exit Sub
 StoreToURLError:
 	MsgBox(Error$_
 		&C2 &	"Perhaps your original file was not in an ODF (OpenOffice Document Format), e.g. it might have been in .xlsx"_
-		_
-		,0+48 ,"SAVE FAILED") '0=ok + 48=Exclamation
+		,sbOkOnly+sbExclamation ,"SAVE FAILED")
 	stop	
 
 URL_error:
@@ -413,8 +454,7 @@ URL_error:
 		&		"document open (i.e. the original document we had open for backup testing)."_
 		_
 		&C2 &	"To fix it just set the focus on the document to backup, then back here in the basic editor, and re-run this."_
-		_
-		,0+48 ,ucase("ThisComponent.URL is missing")) '0=ok + 48=Exclamation
+		,sbOkOnly+sbExclamation ,ucase("ThisComponent.URL is missing"))
 	stop	
 
 End Sub
@@ -505,12 +545,11 @@ Private Sub iBaseFormsClosed(oDoc As Object)
 	Next iFrame
 	
 
-	MsgBox sTxt & chr(10) & "iOpenTables "		& iOpenTables _
-				& chr(10) & "iOpenQueries "		& iOpenQueries _
-				& chr(10) & "iOpenForms "		& iOpenForms _
-				& chr(10) & "iOpenReports "		& iOpenReports	_
-				': stop
-
+'	MsgBox sTxt & chr(10) & "iOpenTables "		& iOpenTables _
+'				& chr(10) & "iOpenQueries "		& iOpenQueries _
+'				& chr(10) & "iOpenForms "		& iOpenForms _
+'				& chr(10) & "iOpenReports "		& iOpenReports	_
+'				': stop
 
 
 	'--- Now if any forms or reports are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
@@ -524,15 +563,15 @@ Private Sub iBaseFormsClosed(oDoc As Object)
 		 	& iif(iOpenForms+iOpenReports=1," is open and needs"," are open and need")_
 			&		" to be closed before backup."_
 			&C2	&	"Ok to close " _
-			& iif(iOpenForms+iOpenReports=1,"it","them") & " now?"_
-			,4+32+128_
-			,"Preparing to backup") = 7 Then stop	'4=Yes/No + 32="?" + 128=first button (Yes) is default
+			& iif(iOpenForms+iOpenReports=1,"it","them") & " now?" _
+			, sbYesNo + sbQuestion + sbDefaultButton1 _
+			,"Preparing to backup") = sbNo Then stop
 
 		'-Close all my forms    (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
 		Dim oForms 	As Object		:oForms		= oDoc.FormDocuments
 		If oForms.count Then 
 			For i=0 To oForms.count-1
-'mri oForms.getByIndex(i) : stop
+
 				oForms.getByIndex(i).close
 			Next i
 		End If
@@ -554,11 +593,10 @@ Private Sub iBaseFormsClosed(oDoc As Object)
 			&iOpenQueries & " Quer"  & iif(iOpenQueries	=1,"y"	,"ies"	) & iif(iOpenTables+iOpenQueries=1," is"," are")_
 			&		" open & may contain unsaved records."_
 			&C2	&	"Ok to Ignore? Or Cancel to be safe, manually close, & retry?"						 	 _
-			,1+32+256_
-			,"CAUTION!") 			= 7 Then stop	'1=Ok/Cancel + 32="?" + 256=2nd button (Yes) is default
+			,sbOkCancel+sbQuestion+sbDefaultButton2 _
+			,"CAUTION!") 			= sbNo Then stop
 			
 		'-Close all my Tables & Queries (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
-'mri oDoc:stop
 		
 	End If
 
@@ -718,7 +756,7 @@ Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLe
 
 
 	'--- iMaxCopies < iMinCopies AND test mode: don't purge files, only report results --
-	If iMsgBoxResult = 6 Then msgbox("New backup saved, but didn't purge any older backups.  "_
+	If iMsgBoxResult = sbYes Then msgbox("New backup saved, but didn't purge any older backups.  "_
 			&C2 &	iBackups & " backups found.  iMaxCopies limit set to " & iMaxCopies & " backups."_
 			,,"RESULTS") : stop 
 
@@ -731,9 +769,9 @@ Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLe
 			&C2 &	"After a backup in order to limit the total number of backups saved, normally "_
 			&		"the oldest backup might be removed. But perhaps you recently decreased "_
 			&		"iMaxCopies which could trigger this question." _
-			,4+48+128_
-			,"UNEXPECTED FILE DELETION REQUEST")	'4=Yes/No + 48=Exclamation + 128=second button (Yes) is default
-	If iMsgBoxResult = 6 Then iKill=1
+			,sbYesNo+sbExclamation+sbDefaultButton1 _
+			,"UNEXPECTED FILE DELETION REQUEST")
+	If iMsgBoxResult = sbYes Then iKill=1
 
 
 	'--- Deleting oldest files ----------------------------------------------------------
@@ -858,7 +896,7 @@ End Sub
 
 '################################ SETTINGS FOR AnnotatedBackups ###################################
 
-'1 - Subfolder to hold backups.  Note: GETsPath="" can lead to data loss and will therefor produce a fatal warning.
+'1 - Subfolder to hold backups (relative path).  Note: GETsPath="" can lead to data loss and will therefor produce a fatal warning.
 Sub GETsPath()			As String
 	GETsPath		= "AnnotatedBackups"
 		'Example:
