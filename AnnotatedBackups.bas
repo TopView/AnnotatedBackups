@@ -2,7 +2,7 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
-	Const sProgramsVersion	= "1.5.19"	'AnnotatedBackups current version
+	Const sProgramsVersion	= "1.5.20"	'AnnotatedBackups current version
 	Const sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
 
 
@@ -33,6 +33,11 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 	Const sbIgnore				=  5
 	Const sbYes					=  6
 	Const sbNo					=  7
+
+
+' === Global constants used for File operations ===================================================
+	Const NormalFiles	=  0
+	Const SubDirsDirs	= 16
 
 
 
@@ -212,20 +217,24 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	'=== Now do one or more backups of the current or given file, possibly removing older backups =========
 
-	'--- Check for reasonable iMaxCopies ------------------------------------------------
-	Dim iMinCopies	As Integer	:iMinCopies	= 10
-	Dim iMsgBoxResult		As Integer	:iMsgBoxResult	= sbNo
+	'--- Check for reasonable iMaxCopies and warn if low --------------------------------
+	'This allows it to be set low for testing code, but then flagged when time to commit. 
+	Dim iMinCopies		As Integer	:iMinCopies	= 10			'Minimum number of copies to keep
+	Dim iMsgBoxResult	As Integer	:iMsgBoxResult	= sbYes		'Default is to use iMaxCopies as is
 	If iMaxCopies < iMinCopies Then iMsgBoxResult = MsgBox(_
-				"iMaxCopies(" & iMaxCopies & ") is lower than iMinCopies (" & iMinCopies & "). Ignore?"_
-	 	&C2 &	"YES: Ignore and keep ALL backups."_
-	 	&C2 &	"NO: Use iMaxCopies as is, (this is for testing only)"_
-		&C2 &	"CANCEL to stop, so you can update iMaxCopies in:"_
-		&CR &	"    "  &SettingsName(sSettingsName,iVersion)_
-		,sbYesNoCancel+sbExclamation+sbDefaultButton1 _
-		,"SETUP WARNING: iMaxCopies IS UNEXPECTEDLY LOW")
+				"iMaxCopies was found to be unexpectedly low (" & iMaxCopies & "); it was probably set this way for testing."_		
+		&C2 &	"CANCEL:	Cancels this backup so you can stop and fix iMaxCopies."_
+		&CR &	"  (iMaxCopies is located in the " & SettingsName(sSettingsName,iVersion) & " module.)"_		
+		&C2 &	"OR"_
+		&C2 &	"Proceed with backup and limit (purge) backups to " & iMaxCopies & " copies?"_
+	 	&C2 &	"  YES=DESTRUCTIVE:	Use iMaxCopies as is to purge older backups."_
+	 	&C2 &	"  NO=FAILSAFE:	Backup, but don't purge any backups."_
+		&C2 &	""_
+		,sbYesNoCancel+sbExclamation+sbDefaultButton3 _
+		,"SETUP SANITY WARNING")
 	If iMsgBoxResult=sbCancel Then stop
-	'=sbNo if ok to use iMaxCopies
-'MsgBox("answer" & iMsgBoxResult): stop
+	'=sbYes:	use iMaxCopies as is (even if low for testing)
+	'=sbNo :	don't purge any backups; only print error message later and stop
 
 
 	'--- Check for non-empty backup path ------------------------------------------------
@@ -370,12 +379,12 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 	' --- get timestamp -----------------------------------------------------------------
 	'  the timestamp, so it will be identical for all the backup copies
 	Dim s_	As String	:s_ = iif(sSlash = "/",":","_")		'Allowable hour:time:seconds delimiter for linux or windows
-	Dim sTimeStamp 	As String: sTimeStamp	= "--" & 	Format(Year(	Now), "0000-"	) & _
-														Format(Month(	Now), "00-"		) & _
-														Format(Day(		Now), "00\_"	) & _
-														Format(Hour(	Now), "00"&s_	) & _
-														Format(Minute(	Now), "00"&s_	) & _
-														Format(Second(	Now), "00"		)
+	Dim sTimeStamp 	As String: sTimeStamp	= 	Format(Year(	Now), "0000-"	) & _
+												Format(Month(	Now), "00-"		) & _
+												Format(Day(		Now), "00\_"	) & _
+												Format(Hour(	Now), "00"&s_	) & _
+												Format(Minute(	Now), "00"&s_	) & _
+												Format(Second(	Now), "00"		)
 
 
 	' --- Change illegal file name characters to dashes in comment ----------------------
@@ -427,7 +436,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 				On Error Goto 0
 
 					'Backup name format: name.ext timestamp comment.ext		(Note: .ext twice)			'used once below
-					sBackupName	= sDocName 				& "." & sExt _
+					sBackupName	= sDocName 				& "." & sExt & "--" _
 								& sTimeStamp & sComment & "." & sExt		
 
 					sSaveToURL	= ConvertToURL(sAbsPath & sBackupName)									'Name to save to (used once below)
@@ -436,13 +445,33 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 					oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 	GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
 
 					On Error Goto 0
-					RenameOlderBackups(					sAbsPath, sDocName, sExt, oDoc)
-					PruneBackupsToMaxSize(iMaxCopies, 	sAbsPath, sDocName, sExt, iMsgBoxResult)	'And finally possibly remove older backups to limit number of them kept
+					RenameOlderBackups(					sAbsPath, sDocName				, sExt, oDoc)
+					PruneBackupsToMaxSize(iMaxCopies, 	sAbsPath, sDocName & "." & sExt	, sExt, iMsgBoxResult)	'And finally possibly remove older backups to limit number of them kept
 
 			End If
 		End If
 		i = i + 1
 	Wend
+
+
+	' --- Backup shared macros to a common area -----------------------------------------
+	'For OO file operations see: https://wiki.openoffice.org/wiki/Documentation/BASIC_Guide/Files_and_Directories_%28Runtime_Library%29
+	'	From root subdir:  /home/howard/.config/libreoffice/4/user/basic/*		(currently about 240 kb)
+	'	To   root subdir:  /home/howard/.config/libreoffice/4/user/backups/annotatedbackups/basic/timestamp-comment/*
+	Dim oPathSettings As Object	: oPathSettings = createUnoService("com.sun.star.util.PathSettings")
+	
+	Dim sFrom As String : sFrom = Split(oPathSettings.Basic ,";")(1) 	& sSlash
+	Dim sTo   As String : sTo   = Split(oPathSettings.Backup,";")(0) 	& sSlash & _
+				"annotatedbackups" 										& sSlash & _
+				"basic"													& sSlash
+		
+		
+	'Backup My Macros subdirectory (that has the common/shared BASIC code in it)
+	mkdir(sTo) : FileCopy ( sFrom, sTo & sTimeStamp & sComment & sSlash)
+	
+	' --- Prune older backup dirs
+	PruneBackupDirsToMaxSize(iMaxCopies, sTo, iMsgBoxResult)	'And finally possibly remove older backups to limit number of them kept
+
 Exit Sub
 
 'this needs further testing
@@ -744,69 +773,75 @@ End Sub
 Private Sub RenameOlderBackups(sAbsPath As String, sDocName As String, sExt As String, oDoc As Object)
 	Dim mOlder() 		As String											'Array to store list of existing older backup path/file names
 	Dim iOlder	 		As Integer 	:iOlder 		= 0						'Count of existing backup files	
-	Dim stFileName 		As String
+	Dim sName 			As String
 		
 	'Get list of older style named backups	
-	stFileName 	= Dir(sAbsPath, 0)		'Get FIRST normal file from pathname
-	Do While (stFileName <> "")
+	sName 	= Dir(sAbsPath, NormalFiles)		'Get FIRST normal file from pathname
+	Do While (sName <> "")
 	
 		'Huristic to test for older style backup name: 	sDocName(no ext) & -- * sExt		where * is:  timestamp comment
 		If _
-			InStr(stFileName, sDocName & "--") And		_
-			Right(stFileName,3				) = sExt	_
-			Then	:ReDIM Preserve mOlder(iOlder)		:mOlder(iOlder) = stFileName	:iOlder = iOlder+1 	'get list of existing backups
+			InStr(sName, sDocName & "--") And		_
+			Right(sName,3				) = sExt	_
+			Then	:ReDIM Preserve mOlder(iOlder)		:mOlder(iOlder) = sName	:iOlder = iOlder+1 	'get list of existing backups
 		End if
-									 stFileName 	= Dir()					'Get NEXT  normal file from pathname as initially used above
+									 sName 	= Dir()					'Get NEXT  normal file from pathname as initially used above
 	Loop
 	
 	'Now rename files in the list to new style names
 	Dim sNewName		As String
-	For Each stFileName In mOlder()
-		sNewName = Left(stFileName,len(sDocName)) & "." & sExt & right(stFileName,len(stFileName)-len(sDocName))
+	For Each sName In mOlder()
+		sNewName = Left(sName,len(sDocName)) & "." & sExt & right(sName,len(sName)-len(sDocName))
 
-		Name sAbsPath & stFileName As sAbsPath & sNewName	'rename file:	Name OldName As NewName
-	Next stFileName
+		Name sAbsPath & sName As sAbsPath & sNewName	'rename file:	Name OldName As NewName
+	Next sName
 End Sub
 
 
 
 ' === possibly remove older backups =====================================================
-Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, sDocName As String, sExt As String, iMsgBoxResult As Integer)
+Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, sDocNameExt As String, sExt As String, ByVal iMsgBoxResult As Integer)
+	'ByVal 	- so below can't modify it in the caller!
 	if iMaxCopies = 0 then exit sub											'If iMaxCopies is = 0, there is no need to read, sort or delete any files.
 
 		
 	' --- First get list of existing backups --------------------------------------------
-	Dim mArray() 		As String											'Array to store list of existing backup path/file names
-	Dim iBackups 		As Integer 	:iBackups 		= 0						'Count of existing backup files	
-	Dim stFileName 		As String	:stFileName 	= Dir(sAbsPath, 0)		'Get FIRST normal file from pathname
-	Do While (stFileName <> "")
+	Dim mArray() 	As String													'Array to store list of existing backup path/file names
+	Dim iBackups 	As Integer 	:iBackups 	= 0									'Count of existing backup files	
+	Dim sName 		As String	:sName 		= Dir(sAbsPath, NormalFiles)		'Get FIRST normal file from pathname
+	Do While (sName <> "")
 	
-		'Huristic to test for deletable backups, finds: 	sDocName & -- * sExt		where * is:  timestamp comment
+		'Huristic to test for deletable backups, finds: 	sDocNameExt & -- * sExt		where * is:  timestamp comment
 		If _
-			Left(stFileName,Len(sDocName)+2	) = sDocName & "--" And _
-		   Right(stFileName,3				) = sExt 				_
-		   Then	:ReDIM Preserve mArray(iBackups)	:mArray(iBackups) = stFileName	:iBackups = iBackups+1 	'get list of existing backups
+			Left(sName,Len(sDocNameExt)+2	) = sDocNameExt & "--" And _
+		   Right(sName,3					) = sExt 				_
+		   Then	:ReDIM Preserve mArray(iBackups)	:mArray(iBackups) = sName	:iBackups = iBackups+1 	'get list of existing backups
 		End if
-									 stFileName 	= Dir()					'Get NEXT  normal file from pathname as initially used above
+									 sName 	= Dir()								'Get NEXT  normal file from pathname as initially used above
 	Loop
 
 
 	'--- iMaxCopies < iMinCopies AND test mode: don't purge files, only report results --
-	If iMsgBoxResult = sbYes Then msgbox("New backup saved, but didn't purge any older backups.  "_
-			&C2 &	iBackups & " backups found.  iMaxCopies limit set to " & iMaxCopies & " backups."_
-			,,"RESULTS") : stop 
+	Dim C2 As String	: C2 = chr(10)&chr(10)
+	If iMsgBoxResult = sbNo Then msgbox("New document backup saved, but didn't purge any older backups.  "_
+			&C2 &	iBackups & " document backups found.  iMaxCopies limit set to " & iMaxCopies & " backups."_
+			,,"RESULTS") : Exit Sub 
 
+
+	'--- compute # to delete, and exit now if none (do after the check above, so check always runs)
+	Dim iKill As Integer	:iKill = iBackups - iMaxCopies	: if iKill <1 then Exit Sub	'# of old backups to delete
+	
 
 	'--- Warn before deleting more than one backup---------------------------------------
 	'Failsave check: This is incase iMaxCopies is reduced for testing, or other unforseen bug occurs.
-	Dim iKill As Integer	:iKill = iBackups - iMaxCopies								'# of old backups to delete
+	'Note: re-use var iMsgBoxResult here for a new function
 	If iKill > 1 Then iMsgBoxResult = MsgBox(_
-					"Only purge the oldest backup?  (No to Purge " & iKill & " older backups.)"_
+					"Only purge the oldest document backup?  (No to Purge " & iKill & " older backups.)"_
 			&C2 &	"After a backup in order to limit the total number of backups saved, normally "_
 			&		"the oldest backup might be removed. But perhaps you recently decreased "_
 			&		"iMaxCopies which could trigger this question." _
 			,sbYesNo+sbExclamation+sbDefaultButton1 _
-			,"UNEXPECTED FILE DELETION REQUEST")
+			,"UNEXPECTED DOCUMENT BACKUP DELETION REQUEST")
 	If iMsgBoxResult = sbYes Then iKill=1
 
 
@@ -817,6 +852,58 @@ Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, sDo
 
 End Sub
 
+
+
+
+
+' === possibly remove older backups =====================================================
+		'And finally possibly remove older backups to limit number of them kept
+Private Sub PruneBackupDirsToMaxSize(iMaxCopies As Integer, sAbsPath As String, ByVal iMsgBoxResult As Integer)
+	'ByVal 	- so below can't modify it in the caller!
+	if iMaxCopies = 0 then exit sub											'If iMaxCopies is = 0, there is no need to read, sort or delete any files.
+
+		
+	' --- First get list of existing backups --------------------------------------------
+	Dim mArray() 	As String													'Array to store list of existing backup path/file names
+	Dim iBackups 	As Integer 	:iBackups 	= 0									'Count of existing backup files	
+	Dim sName 		As String	:sName		= Dir(sAbsPath, SubDirsDirs)		'Get FIRST normal file from pathname
+	Do While (sName <> "")
+		if sName <> "." And sName <> ".." Then
+			ReDIM Preserve mArray(iBackups)	:mArray(iBackups) = sName	:iBackups = iBackups+1 	'get list of existing backups
+		End If
+									 sName 	= Dir()								'Get NEXT  normal file from pathname as initially used above
+	Loop
+
+
+	'--- iMaxCopies < iMinCopies AND test mode: don't purge files, only report results --
+	Dim C2 As String	: C2 = chr(10)&chr(10)
+	If iMsgBoxResult = sbNo Then msgbox("New My Macros backup saved, but didn't purge any older backups.  "_
+			&C2 &	iBackups & " My Macros backups found.  iMaxCopies limit set to " & iMaxCopies & " backups."_
+			,,"RESULTS") : Exit Sub  
+
+
+	'--- compute # to delete, and exit now if none (do after the check above, so check always runs)
+	Dim iKill As Integer	:iKill = iBackups - iMaxCopies	: if iKill <1 then Exit Sub	'# of old backups to delete
+
+	'--- Warn before deleting more than one backup---------------------------------------
+	'Failsave check: This is incase iMaxCopies is reduced for testing, or other unforseen bug occurs.
+	'Note: re-use var iMsgBoxResult here for a new function
+	If iKill > 1 Then iMsgBoxResult = MsgBox(_
+					"Only purge the oldest My Macros backup?  (No to Purge " & iKill & " older backups.)"_
+			&C2 &	"After a backup in order to limit the total number of backups saved, normally "_
+			&		"the oldest backup might be removed. But perhaps you recently decreased "_
+			&		"iMaxCopies which could trigger this question." _
+			,sbYesNo+sbExclamation+sbDefaultButton1 _
+			,"UNEXPECTED MY MACROS BACKUP DELETION REQUEST")
+	If iMsgBoxResult = sbYes Then iKill=1
+
+
+	'--- Deleting oldest files ----------------------------------------------------------
+	'Deletes oldest files exceeding the limit set in iMaxCopies
+	iSort(mArray)																	'Sort list of existing backups (by timestamp, oldest first)
+	Dim i As Integer  :For i = 0 to iKill -1: RmDir(sAbsPath & mArray(i)): Next i	'now delete oldest ones as necessary
+
+End Sub
 
 
 '=== insertion sort (oldest first) ================================================================
