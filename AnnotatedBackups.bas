@@ -2,7 +2,7 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
-	Const sProgramsVersion	= "1.5.18"	'AnnotatedBackups current version
+	Const sProgramsVersion	= "1.5.19"	'AnnotatedBackups current version
 	Const sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
 
 
@@ -399,7 +399,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 	' --- do other backups --------------------------------------------------------------
 	' For each file filter, let's see whether we should create a backup copy or not
-	Dim sBackupName		As String	:sBackupName		= sDocName & sTimeStamp & sComment 		'used twice below
+	Dim sBackupName		As String
 	
 	Dim sDocType 		As String
 	Dim sExt			As String	'file name extension
@@ -425,14 +425,19 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 				On Error Resume Next
 				MkDir 									sAbsPath														'Create directory (if not already found)
 				On Error Goto 0
-	
-					sSaveToURL	= ConvertToURL(  		sAbsPath &   sBackupName & "." & sExt)							'Name to save to
+
+					'Backup name format: name.ext timestamp comment.ext		(Note: .ext twice)			'used once below
+					sBackupName	= sDocName 				& "." & sExt _
+								& sTimeStamp & sComment & "." & sExt		
+
+					sSaveToURL	= ConvertToURL(sAbsPath & sBackupName)									'Name to save to (used once below)
 
 					On Error Goto StoreToURLError	'Next line fails if original doc is *.xlsx.  To fix first save doc as *.ods.
 					oDoc.storeToUrl(sSaveToURL, Array(MakePropertyValue( "FilterName", 	GetField(sB(i), "|", 5) ) ) )	'Now run the filter to write out the file
 
 					On Error Goto 0
-					PruneBackupsToMaxSize(iMaxCopies,	sAbsPath,Len(sBackupName & "." & sExt),sDocName,sExt,iMsgBoxResult)	'And finally possibly remove older backups to limit number of them kept
+					RenameOlderBackups(					sAbsPath, sDocName, sExt, oDoc)
+					PruneBackupsToMaxSize(iMaxCopies, 	sAbsPath, sDocName, sExt, iMsgBoxResult)	'And finally possibly remove older backups to limit number of them kept
 
 			End If
 		End If
@@ -608,10 +613,10 @@ Private Sub isSuffix(s1 As String, s2 As String) As Boolean	'Look to see if s2 i
 '	msgbox Right(s1,len(s2))
 	isSuffix = (Right(s1,len(s2)) = s2)
 End Sub
-Private Sub isSuffixTest()
-	MsgBox isSuffix("this is a test" , "is a test")	'true
-	MsgBox isSuffix("this is a test2", "is a test")	'false
-End Sub
+'Private Sub isSuffixTest()
+'	MsgBox isSuffix("this is a test" , "is a test")	'true
+'	MsgBox isSuffix("this is a test2", "is a test")	'false
+'End Sub
 
 
 
@@ -732,22 +737,53 @@ Private Sub MakePropertyValue(Optional sName As String, Optional sValue As Varia
 End Sub
 
 
+
+' === look for older style names and rename files if found ==============================
+'older naming style:	ToGet--2017-05-07_22:20:16.odb	
+'newer naming style:	ToGet.odb--2017-05-07_22:20:16.odb		(inserted extra .odb to make it easier to un-timestamp name)
+Private Sub RenameOlderBackups(sAbsPath As String, sDocName As String, sExt As String, oDoc As Object)
+	Dim mOlder() 		As String											'Array to store list of existing older backup path/file names
+	Dim iOlder	 		As Integer 	:iOlder 		= 0						'Count of existing backup files	
+	Dim stFileName 		As String
+		
+	'Get list of older style named backups	
+	stFileName 	= Dir(sAbsPath, 0)		'Get FIRST normal file from pathname
+	Do While (stFileName <> "")
+	
+		'Huristic to test for older style backup name: 	sDocName(no ext) & -- * sExt		where * is:  timestamp comment
+		If _
+			InStr(stFileName, sDocName & "--") And		_
+			Right(stFileName,3				) = sExt	_
+			Then	:ReDIM Preserve mOlder(iOlder)		:mOlder(iOlder) = stFileName	:iOlder = iOlder+1 	'get list of existing backups
+		End if
+									 stFileName 	= Dir()					'Get NEXT  normal file from pathname as initially used above
+	Loop
+	
+	'Now rename files in the list to new style names
+	Dim sNewName		As String
+	For Each stFileName In mOlder()
+		sNewName = Left(stFileName,len(sDocName)) & "." & sExt & right(stFileName,len(stFileName)-len(sDocName))
+
+		Name sAbsPath & stFileName As sAbsPath & sNewName	'rename file:	Name OldName As NewName
+	Next stFileName
+End Sub
+
+
+
 ' === possibly remove older backups =====================================================
-Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, iLenBackupName As Integer, sDocName As String, sExt As String, iMsgBoxResult As Integer)
+Private Sub PruneBackupsToMaxSize(iMaxCopies As Integer, sAbsPath As String, sDocName As String, sExt As String, iMsgBoxResult As Integer)
 	if iMaxCopies = 0 then exit sub											'If iMaxCopies is = 0, there is no need to read, sort or delete any files.
 
 		
 	' --- First get list of existing backups --------------------------------------------
 	Dim mArray() 		As String											'Array to store list of existing backup path/file names
 	Dim iBackups 		As Integer 	:iBackups 		= 0						'Count of existing backup files	
-	
 	Dim stFileName 		As String	:stFileName 	= Dir(sAbsPath, 0)		'Get FIRST normal file from pathname
 	Do While (stFileName <> "")
 	
-		'Huristic to test for deletable backups
-'		If 	 Len(stFileName					) = iLenBackupName	And	_		'patch this in to only remove un-commented names and not purge names given a suffix comment
+		'Huristic to test for deletable backups, finds: 	sDocName & -- * sExt		where * is:  timestamp comment
 		If _
-			Left(stFileName,Len(sDocName)	) = sDocName		And _
+			Left(stFileName,Len(sDocName)+2	) = sDocName & "--" And _
 		   Right(stFileName,3				) = sExt 				_
 		   Then	:ReDIM Preserve mArray(iBackups)	:mArray(iBackups) = stFileName	:iBackups = iBackups+1 	'get list of existing backups
 		End if
