@@ -2,7 +2,7 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
-	Const sProgramsVersion	= "1.5.20"	'AnnotatedBackups current version
+	Const sProgramsVersion	= "1.5.21"	'AnnotatedBackups current version
 	Const sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
 
 
@@ -259,16 +259,15 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 
 
 	'--- Get optional comment and honor abort request -----------------------------------
-	'(do this early, so as not to save or close anything if canceled)															'
+	'(do this early, so as not to save or close anything if canceled)
+	'NOTE this won't wrap like MsgBox will.  Instead you are limited to 3 lines only!
 	Dim sComment	As String
 	sComment = InputBox(_
-				"(MaxCopies=" & iMaxCopies _
-		& 		"; rel. backup path=./" & sPath _
-		& 		"; v" & sProgramsVersion _
-		& 		", settings v" & sSettingsVersion &")"_
-		_
-		&C2 &	"Optional backup description, (this gets appended to backup's filename):"_
-		,"OPTIONAL FILENAME ANNOTATION"_
+				"(AnnotatedBackups V" & sProgramsVersion 			_
+		& 		" with v" & sSettingsVersion 	_ 
+		&		" settings.  MaxCopies=" & iMaxCopies & ")"	_
+		&C2 &	"Optional comment to append to your backup's file name:" _
+		,"ENTER OPTIONAL FILENAME ANNOTATION"_
 		,"none")		'"none" is needed because an empty string and a cancel button are the same thing.
 	If sComment = "" Then Exit Sub
 
@@ -467,7 +466,7 @@ Sub AnnotatedBackups()			'was: Sub AnnotatedBackups(Optional oDoc As Object)
 		
 		
 	'Backup My Macros subdirectory (that has the common/shared BASIC code in it)
-	mkdir(sTo) : FileCopy ( sFrom, sTo & sTimeStamp & sComment & sSlash)
+	mkdir(sTo) : FileCopy ( sFrom, sTo & sTimeStamp & " " & sDocName & "." & sExt & sComment & sSlash)
 	
 	' --- Prune older backup dirs
 	PruneBackupDirsToMaxSize(iMaxCopies, sTo, iMsgBoxResult)	'And finally possibly remove older backups to limit number of them kept
