@@ -586,8 +586,7 @@ Private Sub iBaseFormsClosed(oDoc As Object)
 
 
 	'--- Now if any forms or reports are open (with possibly unsaved edits!) then ask to close them, or abort the backup.  
-	'		(Because I can't figure out how to save any current records changes before the backup).
-	Dim i			As Integer	'documents index
+	'		(Because I can't figure out how to save any current records changes before the backup).	
 	if iOpenForms+iOpenReports Then
 
 		If 	MsgBox(	_
@@ -600,22 +599,9 @@ Private Sub iBaseFormsClosed(oDoc As Object)
 			, sbYesNo + sbQuestion + sbDefaultButton1 _
 			,"Preparing to backup") = sbNo Then stop
 
-		'-Close all my forms    (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
-		Dim oForms 	As Object		:oForms		= oDoc.FormDocuments
-		If oForms.count Then 
-			For i=0 To oForms.count-1
-
-				oForms.getByIndex(i).close
-			Next i
-		End If
-		
-		'-Close all my reports (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
-		Dim oReports 	As Object	:oReports	= oDoc.ReportDocuments
-		If oReports.count Then 
-			For i=0 To oReports.count-1
-				oReports.getByIndex(i).close
-			Next i
-		End If
+		'-Close all my forms & reports    (open or not).  This is harmless as some of them might already be closed, but I can't tell here which ones.
+		CloseTree(oDoc.FormDocuments)
+		CloseTree(oDoc.ReportDocuments)
 	End If
 	
 	
@@ -634,6 +620,30 @@ Private Sub iBaseFormsClosed(oDoc As Object)
 	End If
 
 End Sub
+
+
+'--- Close Forms or Reports tree(s) -- (recursive) ------------------------------------------------
+Private Sub CloseTree(oDocuments As Object)
+'	mri oDocuments
+	
+	If oDocuments.count Then 
+		Dim oDoc	As Object						'Holds current item in list
+		Dim i		As Integer	'documents index
+
+		For i=0 To oDocuments.count-1
+			oDoc = oDocuments.getByIndex(i)
+'			msgbox oDoc.name
+			
+			If oDoc.ContentType = "" Then 
+				CloseTree(oDoc)			'nest (recurse)
+			Else
+				oDoc.close
+			End If
+			
+		Next i
+	End If
+End Sub
+
 
 
 '--- Test string for a suffix
