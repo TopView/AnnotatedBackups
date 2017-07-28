@@ -2,7 +2,7 @@ Option Explicit	'BASIC	###### AnnotatedBackups ######
 
 'Editor=Wide load 4:  Set your wide load editor to 4 column tabs, fixed size font.  Suggest Kate (Linux) or Notepad++ (windows).
 
-	Const sProgramsVersion	= "1.5.21"	'AnnotatedBackups current version
+	Const sProgramsVersion	= "1.5.22"	'AnnotatedBackups current version
 	Const sSettingsVersion	= "1"		'AnnotatedBackupsSettings minimum required version
 
 
