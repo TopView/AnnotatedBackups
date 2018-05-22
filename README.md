@@ -4,12 +4,13 @@
 
 **Program files**
 
-    AnnotatedBackups.bas          - Basic code: Program  
-    AnnotatedBackupsSettings.bas  - Basic code: Settings  
-    Icons                         - Two optional icons and their GIMP source to use in your menu bar
+    AnnotatedBackups.bas  - Basic code: Program   
+    Icons                 - Two optional icons and their GIMP source to use in your menu bar  
   
 **Misc files**
 
-    Screenshots						        - Images used only by installation guide   
-    Change notes.txt              -   
-    LICENSE                       - Legal verbage  
+    .editorconfig         - Sets github editing options (like tabs set to 4 wide)
+    Screenshots           - Images used only by installation guide   
+    Change notes.txt      -  
+	README.md             - This help text
+    LICENSE               - Legal verbage  
